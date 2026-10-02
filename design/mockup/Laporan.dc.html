@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Laporan dan Scorecard</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#0f1218}
+a{color:#f5b83d}a:hover{color:#ffd27a}
+.px{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;letter-spacing:0}
+.mono{font-family:'JetBrains Mono',monospace}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.nav-link{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:999px;color:#b9bfcc;text-decoration:none;font-weight:600;font-size:14px}
+.nav-link:hover{color:#ffffff;background:#1d2230}
+.nav-link.is-active{color:#1a1205;background:#f5b83d}
+.panel{background:#161a22;border:1px solid #252b38;border-radius:18px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:12px;border:0;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:14px;cursor:pointer}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.px-blink{animation:blink 1s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){.px-blink{animation:none}}
+.seg{min-height:44px;padding:0 16px;background:#161a22;color:#b9bfcc;border:1px solid #2a3140;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:600}
+.seg:first-child{border-radius:999px 0 0 999px}.seg:last-child{border-radius:0 999px 999px 0}
+.seg.is-on{background:#f5b83d;color:#1a1205;border-color:#f5b83d}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+.two{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:1100px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:minmax(0,1fr)}}
+.th-btn{background:none;border:0;padding:0;min-height:44px;cursor:pointer;color:#9aa1b2;font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;display:inline-flex;align-items:center;gap:4px}
+.th-btn:hover{color:#ffffff}
+.th-btn.is-on{color:#f5b83d}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #0f1218; color: #e8eaf0; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 15px">
+<header style="display: flex; align-items: center; gap: 24px; padding: 12px 24px; background: #12151c; border-bottom: 1px solid #222837; flex-wrap: wrap">
+<div style="display: flex; align-items: center; gap: 10px">
+<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="1" y="1" width="28" height="28" rx="9" fill="#f5b83d"></rect><ellipse cx="15" cy="17" rx="8" ry="4.5" fill="#1a1205"></ellipse><circle cx="8" cy="10" r="2.6" fill="#1a1205"></circle><circle cx="15" cy="8.5" r="2.6" fill="#1a1205"></circle><circle cx="22" cy="10" r="2.6" fill="#1a1205"></circle></svg>
+<span style="font-size: 18px; font-weight: 800; color: #ffffff">Kantor Agent</span>
+</div>
+<nav aria-label="Navigasi utama" style="display: flex; gap: 6px; flex-wrap: wrap">
+<a href="Main.dc.html" class="nav-link">Ruang Tim</a>
+<a href="Laporan.dc.html" class="nav-link is-active" aria-current="page">Laporan</a>
+<a href="Pengaturan.dc.html" class="nav-link">Pengaturan Tim</a>
+</nav>
+<div style="margin-left: auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap">
+<span style="display: inline-flex; align-items: center; gap: 8px; color: #9aa1b2; font-size: 13px"><span class="px-blink" style="width: 9px; height: 9px; border-radius: 50%; background: #35b87a; display: inline-block"></span>Langsung</span>
+<span class="mono" style="color: #c9ccd8; font-size: 13px">Jum, 2 Okt 2026 · 14:32 WIB</span>
+<span style="font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px dashed #4a5368; color: #9aa1b2">Data contoh</span>
+</div>
+</header>
+
+<main style="padding: 20px 24px 40px; max-width: 1440px; margin: 0 auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+<div>
+<h1 class="px" style="margin: 0; font-size: 22px; color: #ffffff">Laporan &amp; Scorecard</h1>
+<p style="margin: 6px 0 0; color: #9aa1b2; font-size: 14px">{{periodDesc}}</p>
+</div>
+<div role="group" aria-label="Periode" style="display: flex">
+<sc-for list="{{periods}}" as="p" hint-placeholder-count="3">
+<button type="button" class="seg {{p.cls}}" aria-pressed="{{p.pressed}}" onClick="{{p.pick}}">{{p.label}}</button>
+</sc-for>
+</div>
+</div>
+
+<div class="kpis">
+<sc-for list="{{kpis}}" as="k" hint-placeholder-count="5">
+<div class="panel" style="padding: 16px">
+<div style="font-size: 13px; color: #9aa1b2">{{k.label}}</div>
+<div class="mono" style="font-size: 28px; font-weight: 500; color: #ffffff; margin-top: 6px">{{k.value}}</div>
+<div style="font-size: 12px; color: #9aa1b2; margin-top: 4px">{{k.sub}}</div>
+</div>
+</sc-for>
+</div>
+
+<div class="two">
+<section class="panel" aria-labelledby="h-agent" style="padding: 18px; min-width: 0">
+<h2 id="h-agent" class="px" style="margin: 0 0 6px; font-size: 14px; color: #f5b83d">Scorecard per agent</h2>
+<p style="margin: 0 0 8px; font-size: 13px; color: #9aa1b2">Klik judul kolom untuk mengurutkan.</p>
+<div style="overflow-x: auto">
+<div style="min-width: 620px">
+<div style="display: grid; grid-template-columns: minmax(0, 1.6fr) 70px 90px 90px minmax(0, 1.4fr); gap: 12px; align-items: center; border-bottom: 2px solid #2a3140">
+<span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #9aa1b2">Agent</span>
+<button type="button" class="th-btn {{sortSesi.cls}}" onClick="{{sortSesi.pick}}">Sesi {{sortSesi.arrow}}</button>
+<button type="button" class="th-btn {{sortSukses.cls}}" onClick="{{sortSukses.pick}}">Sukses {{sortSukses.arrow}}</button>
+<button type="button" class="th-btn {{sortBiaya.cls}}" onClick="{{sortBiaya.pick}}">Biaya {{sortBiaya.arrow}}</button>
+<span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #9aa1b2">Porsi biaya</span>
+</div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="9">
+<div style="display: grid; grid-template-columns: minmax(0, 1.6fr) 70px 90px 90px minmax(0, 1.4fr); gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid #222837">
+<div style="display: flex; align-items: center; gap: 10px; min-width: 0">
+<span style="width: 30px; height: 30px; flex-shrink: 0; border-radius: 50%; background: {{r.shirt}}; color: #ffffff; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800">{{r.ini}}</span>
+<div style="min-width: 0">
+<div style="font-weight: 600; color: #ffffff">{{r.name}}</div>
+<div style="font-size: 12px; color: #9aa1b2">{{r.role}}</div>
+</div>
+<sc-if value="{{r.hasBlock}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(239,106,60,.18); color: #ffa98a; white-space: nowrap">{{r.blocks}} hambatan</span>
+</sc-if>
+</div>
+<span class="mono" style="color: #ece8dc">{{r.sesiF}}</span>
+<span class="mono" style="color: {{r.okColor}}">{{r.okF}}</span>
+<span class="mono" style="color: #ece8dc">{{r.costF}}</span>
+<div style="height: 14px; background: #252b38; border-radius: 999px; overflow: hidden"><div style="height: 100%; width: {{r.bar}}%; background: {{r.shirt}}"></div></div>
+</div>
+</sc-for>
+</div>
+</div>
+</section>
+
+<div style="display: flex; flex-direction: column; gap: 20px; min-width: 0">
+<section class="panel" aria-labelledby="h-chart" style="padding: 18px">
+<h2 id="h-chart" class="px" style="margin: 0 0 4px; font-size: 14px; color: #f5b83d">{{chartTitle}}</h2>
+<p style="margin: 0 0 14px; font-size: 13px; color: #9aa1b2">Jumlah sesi agent</p>
+<div style="display: flex; align-items: flex-end; gap: 8px; height: 170px; border-bottom: 2px solid #2a3140; padding: 0 2px">
+<sc-for list="{{bars}}" as="b" hint-placeholder-count="10">
+<div style="flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%">
+<span class="mono" style="font-size: 11px; color: #c9ccd8">{{b.v}}</span>
+<div style="width: 100%; height: {{b.h}}%; background: {{b.c}}; border-radius: 6px 6px 0 0"></div>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; gap: 8px; padding: 6px 2px 0">
+<sc-for list="{{bars}}" as="b" hint-placeholder-count="10">
+<span class="mono" style="flex: 1 1 0; text-align: center; font-size: 11px; color: #9aa1b2">{{b.l}}</span>
+</sc-for>
+</div>
+</section>
+
+<section class="panel" aria-labelledby="h-tim" style="padding: 18px">
+<h2 id="h-tim" class="px" style="margin: 0 0 14px; font-size: 14px; color: #f5b83d">Per departemen</h2>
+<div style="display: flex; flex-direction: column; gap: 14px">
+<sc-for list="{{teams}}" as="t" hint-placeholder-count="2">
+<div>
+<div style="display: flex; justify-content: space-between; gap: 10px; font-size: 14px; margin-bottom: 6px"><strong style="color: #ffffff">{{t.name}}</strong><span class="mono" style="color: #c9ccd8">{{t.sesi}} sesi · {{t.cost}}</span></div>
+<div style="height: 18px; background: #252b38; border-radius: 999px; overflow: hidden"><div style="height: 100%; width: {{t.pct}}%; background: {{t.c}}"></div></div>
+</div>
+</sc-for>
+</div>
+</section>
+</div>
+</div>
+
+<section class="panel" aria-labelledby="h-pos" style="padding: 18px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap">
+<div>
+<h2 id="h-pos" class="px" style="margin: 0; font-size: 14px; color: #f5b83d">Kartu pos akhir hari</h2>
+<p style="margin: 4px 0 0; font-size: 13px; color: #9aa1b2">Ringkasan bergaya pixel-art untuk dibagikan ke tim.</p>
+</div>
+<button type="button" class="btn" style="background: #f5b83d; color: #1b1e2b" onClick="{{download}}">Unduh PNG</button>
+</div>
+<div style="display: flex; gap: 0; flex-wrap: wrap; max-width: 760px; border-radius: 16px; overflow: hidden; border: 1px solid #2a3140">
+<div style="width: 300px; min-height: 190px; flex-shrink: 0; background: #1d2431; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: 8px; padding: 20px; box-sizing: border-box">
+<sc-for list="{{postcardPeople}}" as="pp" hint-placeholder-count="18">
+<span style="width: 40px; height: 40px; border-radius: 50%; background: {{pp.c}}; color: #ffffff; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; box-shadow: 0 0 0 3px #1d2431, 0 0 0 4px rgba(255,255,255,.15)">{{pp.i}}</span>
+</sc-for>
+</div>
+<div style="flex: 1 1 260px; background: #f4efe2; color: #1b1e2b; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #8a6420">Salam dari Lantai 3 · PMO</span>
+<strong style="font-size: 20px; font-weight: 800">Jumat, 2 Oktober 2026</strong>
+<span style="font-size: 15px">{{pc.line1}}</span>
+<span style="font-size: 15px">{{pc.line2}}</span>
+<span style="font-size: 15px">{{pc.line3}}</span>
+</div>
+</div>
+</section>
+
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+<div role="status" class="px" style="position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #f5b83d; color: #1b1e2b; padding: 12px 18px; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,.4); border-radius: 12px">{{toast}}</div>
+</sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { period: 'hari', sort: 'biaya', toast: '' };
+  }
+  renderVals() {
+    const { period, sort } = this.state;
+    const nf = (n, d) => n.toLocaleString('id-ID', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 });
+    const usd = (n) => 'US$ ' + nf(n, 2);
+    const tok = (rb) => rb >= 1000 ? nf(rb / 1000, 1) + ' jt' : nf(rb) + ' rb';
+    const BASE = [
+      ['Hendra', 'CEO', 'Pimpinan', '#4a5578', 2, 100, 0.40, 26, 0],
+      ['Rina', 'CTO', 'Pimpinan', '#6a5acd', 5, 96, 1.52, 104, 0],
+      ['Dimas', 'Product Owner', 'Produk', '#e0a030', 4, 100, 0.98, 70, 0],
+      ['Ayu', 'Scrum Master', 'Produk', '#d9488b', 4, 100, 0.85, 58, 0],
+      ['Laras', 'Business Analyst', 'Produk', '#8e44ad', 6, 92, 1.61, 112, 0],
+      ['Sari', 'UI/UX Designer', 'Produk', '#1f9bb5', 6, 94, 1.36, 94, 0],
+      ['Bima', 'Solution Architect', 'Engineering', '#16a085', 5, 96, 1.74, 121, 0],
+      ['Raka', 'Backend Developer', 'Engineering', '#3b6fd8', 9, 94, 3.02, 196, 0],
+      ['Dewi', 'Web Developer', 'Engineering', '#e67e22', 8, 92, 2.48, 171, 0],
+      ['Agus', 'Android Developer', 'Engineering', '#3ddc84', 7, 90, 2.05, 138, 0],
+      ['Nina', 'iOS Developer', 'Engineering', '#9aa3c4', 7, 93, 1.88, 127, 0],
+      ['Yoga', 'QA Engineer', 'Kualitas & Keamanan', '#7fb03a', 6, 80, 1.81, 128, 1],
+      ['Fajar', 'DevSecOps', 'Kualitas & Keamanan', '#c0392b', 5, 84, 1.66, 115, 1],
+      ['Udin', 'Office Boy · Pembersih Cache', 'Operasional', '#2fb5c9', 6, 100, 0.15, 12, 0],
+      ['Wulan', 'Project Manager · PMO Lead', 'PMO', '#b28dff', 5, 98, 1.25, 88, 0],
+      ['Andi', 'Tech Lead', 'Engineering', '#2b3a55', 7, 95, 2.21, 149, 0],
+      ['Dodi', 'Data Engineer', 'Data', '#2f8a9a', 6, 93, 1.96, 133, 0],
+      ['Mega', 'Data Analyst', 'Data', '#e07a5f', 5, 96, 1.47, 102, 0]
+    ];
+    const P = {
+      hari: { label: 'Hari ini', mul: 1, ok: 0, desc: 'Jumat, 2 Oktober 2026 · 08:00–14:32 WIB', chart: 'Aktivitas per jam', labels: ['08', '09', '10', '11', '12', '13', '14'], w: [5, 8, 9, 7, 3, 9, 6] },
+      minggu: { label: '7 hari', mul: 5.7, ok: 1, desc: '26 September – 2 Oktober 2026', chart: 'Aktivitas per hari', labels: ['Sab', 'Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum'], w: [2, 1, 9, 10, 8, 11, 9] },
+      bulan: { label: '30 hari', mul: 22, ok: 2, desc: '3 September – 2 Oktober 2026', chart: 'Aktivitas per minggu', labels: ['Mg 1', 'Mg 2', 'Mg 3', 'Mg 4'], w: [21, 24, 27, 28] }
+    };
+    const p = P[period];
+    let rows = BASE.map(([name, role, dept, shirt, s, ok, c, t, b]) => {
+      const sesi = Math.round(s * p.mul);
+      const okv = Math.max(70, ok - (ok === 100 ? 0 : p.ok));
+      return { name, role, dept, shirt, sesi, ok: okv, cost: c * p.mul, tok: t * p.mul, blocks: Math.round(b * (period === 'hari' ? 1 : p.mul * 0.8)) };
+    });
+    const tot = rows.reduce((a, r) => ({ sesi: a.sesi + r.sesi, cost: a.cost + r.cost, tok: a.tok + r.tok, blocks: a.blocks + r.blocks, okw: a.okw + r.ok * r.sesi }), { sesi: 0, cost: 0, tok: 0, blocks: 0, okw: 0 });
+    const okAvg = Math.round(tot.okw / tot.sesi);
+    const maxCost = Math.max(...rows.map((r) => r.cost));
+    const key = { sesi: 'sesi', sukses: 'ok', biaya: 'cost' }[sort];
+    rows = rows.slice().sort((a, b) => b[key] - a[key]).map((r) => ({ ...r, sesiF: nf(r.sesi), okF: r.ok + '%', okColor: r.ok < 85 ? '#ffa98a' : '#7fe0ae', costF: usd(r.cost), ini: r.name[0], bar: Math.round((r.cost / maxCost) * 100), hasBlock: r.blocks > 0 }));
+    const sortBtn = (k) => ({ cls: sort === k ? 'is-on' : '', arrow: sort === k ? '▼' : '', pick: () => this.setState({ sort: k }) });
+    const wsum = p.w.reduce((a, b) => a + b, 0);
+    let vals = p.w.map((w) => Math.round((w / wsum) * tot.sesi));
+    vals[vals.length - 1] += tot.sesi - vals.reduce((a, b) => a + b, 0);
+    const vmax = Math.max(...vals);
+    const bars = vals.map((v, i) => ({ v: nf(v), l: p.labels[i], h: Math.max(4, Math.round((v / vmax) * 82)), c: i === vals.length - 1 ? '#f5b83d' : '#5b8def' }));
+    const team = (name, c) => { const rs = rows.filter((r) => r.dept === name); const cost = rs.reduce((a, r) => a + r.cost, 0); return { name, c, sesi: nf(rs.reduce((a, r) => a + r.sesi, 0)), cost: usd(cost), pct: Math.round((cost / tot.cost) * 100) }; };
+    const top = rows.slice().sort((a, b) => b.sesi - a.sesi)[0];
+    return {
+      periodDesc: p.desc, chartTitle: p.chart, bars,
+      periods: Object.keys(P).map((k) => ({ label: P[k].label, cls: period === k ? 'is-on' : '', pressed: period === k ? 'true' : 'false', pick: () => this.setState({ period: k }) })),
+      kpis: [
+        { label: 'Total sesi', value: nf(tot.sesi), sub: '18 agent aktif' },
+        { label: 'Tingkat sukses', value: okAvg + '%', sub: 'sesi selesai tanpa galat' },
+        { label: 'Biaya', value: usd(tot.cost), sub: 'estimasi dari pemakaian token' },
+        { label: 'Token', value: tok(tot.tok), sub: 'input + output + cache' },
+        { label: 'Hambatan', value: nf(tot.blocks), sub: 'tes gagal, rate limit, build' }
+      ],
+      rows, sortSesi: sortBtn('sesi'), sortSukses: sortBtn('sukses'), sortBiaya: sortBtn('biaya'),
+      teams: [team('Pimpinan', '#6a5acd'), team('Produk', '#e0a030'), team('Engineering', '#3b6fd8'), team('Kualitas & Keamanan', '#c0392b'), team('Operasional', '#2fb5c9'), team('PMO', '#b28dff'), team('Data', '#e07a5f')],
+      postcardPeople: BASE.map((b) => ({ c: b[3], i: b[0][0] })),
+      pc: { line1: nf(tot.sesi) + ' sesi · ' + okAvg + '% sukses', line2: 'Paling sibuk: ' + top.name + ' (' + nf(top.sesi) + ' sesi)', line3: 'Hambatan: ' + nf(tot.blocks) + ' · Biaya ' + usd(tot.cost) },
+      download: () => { this.setState({ toast: 'Kartu pos diunduh sebagai PNG (mockup)' }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: '' }), 2600); },
+      toast: this.state.toast, hasToast: !!this.state.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

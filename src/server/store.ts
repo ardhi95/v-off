@@ -36,6 +36,8 @@ export interface StoreEvents {
   'block-added': [BlockRecord];
   /** Config replaced (Pengaturan saved). Clients reload /api/state. */
   'config-updated': [Config];
+  /** Transcript history (re)loaded in the background. Clients reload /api/state. */
+  'state-reloaded': [];
 }
 
 const HOUR = 3600_000;
@@ -73,9 +75,12 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
   /** Per-session event history, insertion-ordered so the oldest session is dropped first. */
   private sessionLogs = new Map<string, { events: AgentEvent[]; truncated: boolean }>();
   private usage: UsageRecord[] = [];
+  private oldestUsageTs = Infinity;
   private blockLog: BlockRecord[] = [];
   /** Sessions whose blocks came from persisted history; replayed transcripts must not count them twice. */
   private persistedBlockSessions = new Set<string>();
+  /** Per-session newest event time when a source restart began (see beginReplay). */
+  private replayMarks: Map<string, number> | undefined;
   /** Cumulative usage per transcript message, so re-reading a transcript never double counts. */
   private usageByMessage = new Map<string, Usage>();
   /** Hours (ms / 3600000) in which each session had activity. */
@@ -131,6 +136,25 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
 
   // ---- ingest -------------------------------------------------------------
 
+  /**
+   * Call before a data source re-reads transcripts it already delivered
+   * (restart after a settings change). Older replayed events are skipped
+   * until endReplay(); token usage is deduplicated separately per message.
+   */
+  beginReplay(): void {
+    this.replayMarks = new Map([...this.sessions.values()].map((s) => [s.sessionId, s.maxTs]));
+  }
+
+  endReplay(): void {
+    this.replayMarks = undefined;
+  }
+
+  /** History finished loading: refresh statuses and tell clients to reload. */
+  announceReload(): void {
+    this.refreshAll(false, true);
+    this.emit('state-reloaded');
+  }
+
   ingest(events: NormalizedEvent[], opts: { historic?: boolean } = {}): void {
     const touched = new Set<string>();
     for (const ev of events) {
@@ -138,8 +162,9 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
       if (ev.channel === 'hook') s.hookSeenAt = ev.ts;
       // Hooks already report this session live; transcripts only add token usage.
       if (ev.channel === 'transcript' && s.hookSeenAt !== undefined && ev.signal !== 'usage') continue;
-      // A transcript read again (source restarted) replays events already applied.
-      if (opts.historic && ev.ts <= s.maxTs && ev.signal !== 'usage') continue;
+      // A source restarted (Pengaturan changed) re-reads transcripts: skip what was already applied.
+      const mark = this.replayMarks?.get(s.sessionId);
+      if (opts.historic && mark !== undefined && ev.ts <= mark && ev.signal !== 'usage') continue;
       if (ev.signal !== 'usage') s.maxTs = Math.max(s.maxTs, ev.ts);
 
       const hadBlock = !!s.block;
@@ -154,7 +179,10 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
         flags.manualIdleAt = undefined; // new activity ends the manual break
       }
       const usage = this.countableUsage(ev);
-      if (usage) this.usage.push({ ...usage, ts: ev.ts, agentId: s.agentId, sessionId: s.sessionId });
+      if (usage) {
+        this.usage.push({ ...usage, ts: ev.ts, agentId: s.agentId, sessionId: s.sessionId });
+        this.oldestUsageTs = Math.min(this.oldestUsageTs, ev.ts);
+      }
       if (ev.kind && ev.detail) {
         this.pushFeed({
           ts: ev.ts, agentId: s.agentId, sessionId: s.sessionId, source: ev.source,
@@ -228,7 +256,11 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
   /** Re-evaluate time-based transitions (kerja → simak → idle). Call periodically. */
   tick(): void {
     const cutoff = this.clock() - USAGE_RETENTION_MS;
-    if (this.usage.length && this.usage[0]!.ts < cutoff) this.usage = this.usage.filter((u) => u.ts >= cutoff);
+    // Replayed usage arrives out of time order, so track the oldest record instead of trusting usage[0].
+    if (this.oldestUsageTs < cutoff) {
+      this.usage = this.usage.filter((u) => u.ts >= cutoff);
+      this.oldestUsageTs = this.usage.reduce((m, u) => Math.min(m, u.ts), Infinity);
+    }
     this.refreshAll(true, false);
   }
 

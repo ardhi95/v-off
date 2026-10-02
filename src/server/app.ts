@@ -30,6 +30,7 @@ export async function startApp(opts: { host?: string; port?: number } = {}): Pro
   // Data sources follow config: re-created when Pengaturan changes them.
   let sources: SourceAdapter[] = [];
   let sourcesKey = '';
+  let started = false;
   const startSources = async () => {
     const cfg = store.getConfig().sources;
     // Only Claude Code has an adapter so far; other toggles must not restart it.
@@ -43,9 +44,26 @@ export async function startApp(opts: { host?: string; port?: number } = {}): Pro
       sources.push(new ClaudeTranscriptSource({ root }));
     }
     // Codex CLI and Gemini CLI adapters plug in here behind SourceAdapter.
-    for (const s of sources) await s.start(store);
+    // Restarts re-read transcripts already delivered; only the first start is a fresh read.
+    const restart = started;
+    started = true;
+    if (restart) store.beginReplay();
+    try {
+      for (const s of sources) await s.start(store);
+    } finally {
+      if (restart) store.endReplay();
+    }
+    store.announceReload();
   };
-  await startSources();
+  // Serialize source (re)starts; the first one runs after listen() so a large
+  // transcript history never delays the server (SPEC 12.1).
+  let sourcesTask: Promise<void> = Promise.resolve();
+  const syncSources = () => {
+    sourcesTask = sourcesTask
+      .then(startSources)
+      .catch((err: Error) => console.error('[v-off] sumber data gagal dimulai:', err.message));
+    return sourcesTask;
+  };
 
   const ticker = setInterval(() => store.tick(), 5000);
   ticker.unref();
@@ -72,7 +90,7 @@ export async function startApp(opts: { host?: string; port?: number } = {}): Pro
   scanTimer.unref();
 
   store.on('config-updated', (cfg) => {
-    void startSources().catch((err: Error) => console.error('[v-off] sumber data gagal dimulai:', err.message));
+    void syncSources();
     const every = Math.max(1, cfg.cleaner.intervalMin);
     if (every !== scanEvery) {
       scanEvery = every;
@@ -87,6 +105,7 @@ export async function startApp(opts: { host?: string; port?: number } = {}): Pro
   const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../web');
   const server = createServer(store, { webRoot });
   const addr = await listen(server, opts.host ?? '127.0.0.1', opts.port ?? 4747);
+  void syncSources();
   const host = addr.address.includes(':') ? `[${addr.address}]` : addr.address;
   return {
     store,
@@ -94,13 +113,14 @@ export async function startApp(opts: { host?: string; port?: number } = {}): Pro
     url: `http://${host}:${addr.port}`,
     async close() {
       clearInterval(ticker);
+      // Do not wait for a running history load: Ctrl+C must be quick.
+      for (const s of sources) s.stop();
       clearTimeout(firstScan);
       clearInterval(scanTimer);
       if (saveTimer) {
         clearTimeout(saveTimer);
         await persist();
       }
-      for (const s of sources) s.stop();
       await closeServer(server);
     },
   };

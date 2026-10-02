@@ -60,6 +60,8 @@ export function useOfficeData(): OfficeData {
     });
     // Pengaturan saved (here or in another tab): roster and departments changed.
     es.addEventListener('config-updated', () => void load());
+    // Transcript history finished loading in the background after start.
+    es.addEventListener('state-reloaded', () => void load());
     es.addEventListener('cleaner-updated', (e) => {
       const cleaner = JSON.parse((e as MessageEvent<string>).data) as CleanerState;
       setState((s) => (s ? { ...s, cleaner } : s));

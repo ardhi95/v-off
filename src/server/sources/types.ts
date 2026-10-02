@@ -33,6 +33,12 @@ export interface NormalizedEvent {
   kind?: EventKind;
   detail?: string;
   usage?: Usage;
+  /**
+   * Message id for transcript usage plus its cumulative total. The store
+   * counts each message once even when a transcript is read again.
+   */
+  usageKey?: string;
+  usageTotal?: Usage;
   /** Set on 'error' / 'notify' when the event should block the agent. */
   block?: BlockMatch;
   /** The tool call starts or stops a subagent. */

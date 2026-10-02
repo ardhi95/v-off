@@ -83,3 +83,8 @@ Variabel lingkungan: `V_OFF_PORT` (default 4747), `V_OFF_HOST` (default 127.0.0.
   hasil pindai cache, pemilihan celetukan. Rute jalan meja <-> ruang santai ada di `layout.ts` (`route`).
 - `web/src/ReportPage.tsx` (Fase 5): halaman `/laporan`. `reportModel.ts` (view model murni, dites),
   `postcardPng.ts` (kartu pos digambar di canvas 2D lalu diunduh sebagai PNG). Routing ada di `App.tsx`.
+- `web/src/SettingsPage.tsx` (Fase 6): halaman `/pengaturan`, edit draf config lalu `PUT /api/config`.
+  `settingsModel.ts` (helper murni, dites): id slug, teks aturan pemetaan <-> `MatchRule`, kursi saat pindah
+  departemen, tetapkan folder tamu. Server memvalidasi ketat (`config.ts`) dan menyiarkan SSE `config-updated`;
+  klien memuat ulang `/api/state`. Token transkrip dihitung per id pesan, jadi membaca ulang transkrip
+  (sumber data di-restart) tidak menggandakan angka.

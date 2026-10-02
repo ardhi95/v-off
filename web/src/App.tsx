@@ -12,11 +12,42 @@ import { defaultSelection, formatBytes, matchesFilter, resumeCommand, type Filte
 import { toSceneAgents } from './sceneAgents.js';
 import { ReportPage } from './ReportPage.js';
 import { SessionDialog } from './SessionDialog.js';
+import { SettingsPage } from './SettingsPage.js';
 
-type Page = 'ruang' | 'laporan';
+type Page = 'ruang' | 'laporan' | 'pengaturan';
+const PATHS: Record<Page, string> = { ruang: '/', laporan: '/laporan', pengaturan: '/pengaturan' };
+const TITLES: Record<Page, string> = { ruang: 'Ruang Tim', laporan: 'Laporan', pengaturan: 'Pengaturan Tim' };
 
 function pageOf(pathname: string): Page {
-  return pathname.replace(/\/+$/, '') === '/laporan' ? 'laporan' : 'ruang';
+  const p = pathname.replace(/\/+$/, '');
+  return p === '/laporan' ? 'laporan' : p === '/pengaturan' ? 'pengaturan' : 'ruang';
+}
+
+/** Short two-tone chime when an agent becomes blocked (Web Audio, no files). */
+function useBlockedSound(agents: AgentWithRuntime[], enabled: boolean): void {
+  const prev = useRef(new Map<string, string>());
+  useEffect(() => {
+    const before = prev.current;
+    const newlyBlocked = agents.some((a) => a.runtime.status === 'macet' && before.has(a.id) && before.get(a.id) !== 'macet');
+    prev.current = new Map(agents.map((a) => [a.id, a.runtime.status]));
+    if (!enabled || !newlyBlocked) return;
+    try {
+      const ctx = new AudioContext();
+      [660, 880].forEach((f, i) => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, ctx.currentTime + i * 0.18);
+        g.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + i * 0.18 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.18 + 0.16);
+        o.connect(g).connect(ctx.destination);
+        o.start(ctx.currentTime + i * 0.18);
+        o.stop(ctx.currentTime + i * 0.18 + 0.17);
+      });
+      setTimeout(() => void ctx.close(), 800);
+    } catch {
+      // Audio unavailable (autoplay policy or no device): stay silent.
+    }
+  }, [agents, enabled]);
 }
 
 /** Minimal client-side routing: "/" Ruang Tim, "/laporan" Laporan. */
@@ -28,7 +59,7 @@ function usePage(): [Page, (p: Page) => void] {
     return () => window.removeEventListener('popstate', on);
   }, []);
   const go = useCallback((p: Page) => {
-    const path = p === 'laporan' ? '/laporan' : '/';
+    const path = PATHS[p];
     if (window.location.pathname !== path) window.history.pushState(null, '', path);
     setPage(p);
     window.scrollTo(0, 0);
@@ -78,8 +109,9 @@ function useEventCounter(newest: unknown): number {
 export function App() {
   const { state, error, live } = useOfficeData();
   const [page, go] = usePage();
+  const [settingsDirty, setSettingsDirty] = useState(false);
   useEffect(() => {
-    document.title = page === 'laporan' ? 'v-off · Laporan' : 'v-off · Ruang Tim';
+    document.title = `v-off · ${TITLES[page]}`;
   }, [page]);
   const navLink = (p: Page, label: string, href: string) => (
     <a
@@ -89,6 +121,7 @@ export function App() {
       onClick={(e) => {
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
         e.preventDefault();
+        if (settingsDirty && page === 'pengaturan' && p !== 'pengaturan' && !window.confirm('Ada perubahan yang belum disimpan. Tinggalkan halaman ini?')) return;
         go(p);
       }}
     >
@@ -120,6 +153,7 @@ export function App() {
     prevSpots.current = next;
     return next;
   }, [agents, departments]);
+  useBlockedSound(agents, !!state?.ambience?.blockedSound);
   const cleanerItems = state?.cleaner.items;
   // Counts live events so the report refreshes as new activity arrives.
   const eventCount = useEventCounter(state?.events[0]);
@@ -146,7 +180,7 @@ export function App() {
         <nav className="nav" aria-label="Navigasi utama">
           {navLink('ruang', 'Ruang Tim', '/')}
           {navLink('laporan', 'Laporan', '/laporan')}
-          <a className="nav-link" aria-disabled="true" title="Segera hadir">Pengaturan Tim</a>
+          {navLink('pengaturan', 'Pengaturan Tim', '/pengaturan')}
         </nav>
         <div className="topbar-right">
           <span className="live">
@@ -158,6 +192,7 @@ export function App() {
       </header>
       <main>
         {error && <div className="notice" role="alert">{error}</div>}
+        {page === 'pengaturan' && state && <SettingsPage agents={agents} onToast={showToast} onDirtyChange={setSettingsDirty} />}
         {page === 'laporan' && state && (
           <ReportPage agents={agents} departments={departments} eventCount={eventCount} onToast={showToast} />
         )}

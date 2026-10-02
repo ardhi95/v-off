@@ -23,12 +23,14 @@ export interface SessionState {
   /** Number of transitions into a blocked state (report: "hambatan"). */
   blockCount: number;
   hadUnresolvedError: boolean;
+  /** Newest event time ingested; replays of older events are skipped. */
+  maxTs: number;
 }
 
 export function newSession(sessionId: string, agentId: string, ts: number): SessionState {
   return {
     sessionId, agentId, startedAt: ts, lastActivityAt: ts,
-    toolsInFlight: 0, subagentsActive: 0, blockCount: 0, hadUnresolvedError: false,
+    toolsInFlight: 0, subagentsActive: 0, blockCount: 0, hadUnresolvedError: false, maxTs: 0,
   };
 }
 

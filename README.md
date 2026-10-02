@@ -15,6 +15,9 @@ Lihat `CLAUDE.md` (panduan kerja) dan `docs/SPEC.md` (spesifikasi).
   dengan cache terbesar (pindai dry-run, tidak ada file dihapus), gelembung celetukan.
 - Fase 5 (Laporan): `/laporan` dengan KPI, scorecard per agent, grafik sesi per jam/hari/minggu,
   rincian per departemen, dan kartu pos akhir hari (unduh PNG). Biaya = estimasi dari tabel harga di config.
+- Fase 6 (Pengaturan): `/pengaturan` untuk agent (nama, peran, departemen, tool, hewan, warna, tampil,
+  aturan pemetaan sesi, celetukan), departemen, sesi tanpa agent, sumber data, harga model, aturan status,
+  pembersih cache, dan suasana. Tersimpan ke `~/.v-off/config.json` dan langsung terlihat di Ruang Tim.
 
 ## Menjalankan
 
@@ -34,6 +37,7 @@ POST /api/agents/:id/resolve POST /api/agents/:id/idle  {idle}
 GET  /api/agents/:id/log     GET  /api/sessions/:id
 GET  /api/report?period=day|week|month
 GET  /api/config             PUT  /api/config
+GET  /api/models
 POST /api/cleaner/clean      (dry-run di v1, belum tersedia)
 ```
 

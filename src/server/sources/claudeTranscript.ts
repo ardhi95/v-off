@@ -61,8 +61,8 @@ export class TranscriptParser {
     const out: NormalizedEvent[] = [];
 
     if (type === 'assistant') {
-      const usage = this.usageDelta(message, s(line.requestId));
-      if (usage) out.push({ ...base, signal: 'usage', usage });
+      const u = this.usageDelta(message, s(line.requestId));
+      if (u) out.push({ ...base, signal: 'usage', usage: u.delta, usageKey: u.key, usageTotal: u.total });
       if (sidechain) return out;
       if (line.isApiErrorMessage === true) {
         const msg = contentText(message.content) || 'API Error';
@@ -113,7 +113,7 @@ export class TranscriptParser {
     return out;
   }
 
-  private usageDelta(message: Record<string, unknown>, requestId?: string): Usage | null {
+  private usageDelta(message: Record<string, unknown>, requestId?: string): { delta: Usage; total: Usage; key?: string } | null {
     const u = obj(message.usage);
     if (!u) return null;
     const cur: Usage = {
@@ -134,6 +134,6 @@ export class TranscriptParser {
       model: cur.model,
     };
     const total = delta.input + delta.output + delta.cacheRead + delta.cacheWrite;
-    return total > 0 && cur.model !== '<synthetic>' ? delta : null;
+    return total > 0 && cur.model !== '<synthetic>' ? { delta, total: cur, key } : null;
   }
 }

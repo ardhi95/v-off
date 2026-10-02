@@ -11,9 +11,12 @@ export const STATUS_LABELS: Record<Status, string> = {
   bersih: 'Bersih-bersih',
 };
 
-export type Species =
-  | 'lion' | 'owl' | 'rabbit' | 'cat' | 'fox' | 'bear' | 'panda' | 'koala' | 'hamster'
-  | 'frog' | 'penguin' | 'dog' | 'raccoon' | 'monkey' | 'elephant' | 'wolf' | 'beaver' | 'sheep';
+export const SPECIES_IDS = [
+  'lion', 'owl', 'rabbit', 'cat', 'fox', 'bear', 'panda', 'koala', 'hamster',
+  'frog', 'penguin', 'dog', 'raccoon', 'monkey', 'elephant', 'wolf', 'beaver', 'sheep',
+] as const;
+
+export type Species = (typeof SPECIES_IDS)[number];
 
 export type MatchRule =
   | { cwdGlob: string }

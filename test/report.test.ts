@@ -103,3 +103,26 @@ describe('report', () => {
     await fs.rm(dir, { recursive: true });
   });
 });
+
+describe('re-reading transcripts', () => {
+  it('does not double count tokens when a source restarts', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'v-off-reread-'));
+    const line = (m: number, out: number) => JSON.stringify({ type: 'assistant', sessionId: 'r', timestamp: new Date(at(9, m)).toISOString(), message: { id: `m${m}`, model: 'x', usage: { input_tokens: 10, output_tokens: out }, content: [] } });
+    await fs.writeFile(path.join(dir, 'r.jsonl'), [line(0, 5), line(1, 7)].join('\n') + '\n');
+    const store = new Store(defaultConfig(), () => NOW);
+    for (let i = 0; i < 3; i++) {
+      const src = new ClaudeTranscriptSource({ root: dir, pollMs: 60_000, clock: () => NOW });
+      await src.start(store);
+      src.stop();
+    }
+    expect(store.report('day').totals.tokens).toBe(10 + 5 + 10 + 7);
+    expect(store.report('day').totals.sessions).toBe(1);
+    // A message that grows later still adds only the growth.
+    await fs.appendFile(path.join(dir, 'r.jsonl'), line(1, 20) + '\n');
+    const src = new ClaudeTranscriptSource({ root: dir, pollMs: 60_000, clock: () => NOW });
+    await src.start(store);
+    src.stop();
+    expect(store.report('day').totals.tokens).toBe(10 + 5 + 10 + 20);
+    await fs.rm(dir, { recursive: true });
+  });
+});

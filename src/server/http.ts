@@ -143,9 +143,11 @@ export function createServer(store: Store, opts: ServerOptions = {}): http.Serve
   const onAgent = (a: unknown) => broadcast('agent-updated', a);
   const onEvent = (e: unknown) => broadcast('event-added', e);
   const onCleaner = (c: unknown) => broadcast('cleaner-updated', c);
+  const onConfig = () => broadcast('config-updated', {});
   store.on('agent-updated', onAgent);
   store.on('event-added', onEvent);
   store.on('cleaner-updated', onCleaner);
+  store.on('config-updated', onConfig);
   const heartbeat = setInterval(() => {
     for (const c of clients) c.write(': ping\n\n');
   }, 15_000);
@@ -228,6 +230,8 @@ export function createServer(store: Store, opts: ServerOptions = {}): http.Serve
 
       if (route === 'GET /api/config') return send(res, 200, store.getConfig());
 
+      if (route === 'GET /api/models') return send(res, 200, store.modelsSeen());
+
       if (route === 'PUT /api/config') {
         const body = await readJson(req);
         const err = validateConfig(body);
@@ -264,6 +268,7 @@ export function createServer(store: Store, opts: ServerOptions = {}): http.Serve
     store.off('agent-updated', onAgent);
     store.off('event-added', onEvent);
     store.off('cleaner-updated', onCleaner);
+    store.off('config-updated', onConfig);
     for (const c of clients) c.end();
     clients.clear();
   });

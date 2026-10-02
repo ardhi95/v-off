@@ -27,17 +27,26 @@ export async function startApp(opts: { host?: string; port?: number } = {}): Pro
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => void persist(), 2000);
   });
-  const sources: SourceAdapter[] = [];
+  // Data sources follow config: re-created when Pengaturan changes them.
+  let sources: SourceAdapter[] = [];
+  let sourcesKey = '';
+  const startSources = async () => {
+    const cfg = store.getConfig().sources;
+    // Only Claude Code has an adapter so far; other toggles must not restart it.
+    const key = JSON.stringify(cfg.claudeCode);
+    if (key === sourcesKey) return;
+    sourcesKey = key;
+    for (const s of sources) s.stop();
+    sources = [];
+    if (cfg.claudeCode.enabled) {
+      const root = cfg.claudeCode.path ? expandHome(cfg.claudeCode.path) : path.join(claudeHome(), 'projects');
+      sources.push(new ClaudeTranscriptSource({ root }));
+    }
+    // Codex CLI and Gemini CLI adapters plug in here behind SourceAdapter.
+    for (const s of sources) await s.start(store);
+  };
+  await startSources();
 
-  if (config.sources.claudeCode.enabled) {
-    const root = config.sources.claudeCode.path
-      ? expandHome(config.sources.claudeCode.path)
-      : path.join(claudeHome(), 'projects');
-    sources.push(new ClaudeTranscriptSource({ root }));
-  }
-  // Codex CLI and Gemini CLI adapters plug in here behind SourceAdapter.
-
-  for (const s of sources) await s.start(store);
   const ticker = setInterval(() => store.tick(), 5000);
   ticker.unref();
 
@@ -58,8 +67,21 @@ export async function startApp(opts: { host?: string; port?: number } = {}): Pro
   };
   const firstScan = setTimeout(() => void runScan(), 3000);
   firstScan.unref();
-  const scanTimer = setInterval(() => void runScan(), Math.max(1, config.cleaner.intervalMin) * 60_000);
+  let scanEvery = Math.max(1, config.cleaner.intervalMin);
+  let scanTimer = setInterval(() => void runScan(), scanEvery * 60_000);
   scanTimer.unref();
+
+  store.on('config-updated', (cfg) => {
+    void startSources().catch((err: Error) => console.error('[v-off] sumber data gagal dimulai:', err.message));
+    const every = Math.max(1, cfg.cleaner.intervalMin);
+    if (every !== scanEvery) {
+      scanEvery = every;
+      clearInterval(scanTimer);
+      scanTimer = setInterval(() => void runScan(), every * 60_000);
+      scanTimer.unref();
+    }
+    void runScan(); // log paths or sessions may have changed
+  });
 
   // dist/server/app.js -> dist/web
   const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../web');

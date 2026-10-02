@@ -58,6 +58,8 @@ export function useOfficeData(): OfficeData {
       const ev = JSON.parse((e as MessageEvent<string>).data) as AgentEvent;
       setState((s) => (s ? applyEvent(s, ev) : s));
     });
+    // Pengaturan saved (here or in another tab): roster and departments changed.
+    es.addEventListener('config-updated', () => void load());
     es.addEventListener('cleaner-updated', (e) => {
       const cleaner = JSON.parse((e as MessageEvent<string>).data) as CleanerState;
       setState((s) => (s ? { ...s, cleaner } : s));

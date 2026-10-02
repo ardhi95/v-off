@@ -34,6 +34,8 @@ export interface StoreEvents {
   'cleaner-updated': [CleanerState];
   /** A new block was recorded live (for history persistence). */
   'block-added': [BlockRecord];
+  /** Config replaced (Pengaturan saved). Clients reload /api/state. */
+  'config-updated': [Config];
 }
 
 const HOUR = 3600_000;
@@ -74,6 +76,8 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
   private blockLog: BlockRecord[] = [];
   /** Sessions whose blocks came from persisted history; replayed transcripts must not count them twice. */
   private persistedBlockSessions = new Set<string>();
+  /** Cumulative usage per transcript message, so re-reading a transcript never double counts. */
+  private usageByMessage = new Map<string, Usage>();
   /** Hours (ms / 3600000) in which each session had activity. */
   private activeHours = new Map<string, Set<number>>();
   private lastStatus = new Map<string, Status>();
@@ -111,7 +115,18 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
     for (const s of this.sessions.values()) {
       if (!this.agentById(s.agentId) || s.agentId.startsWith('tamu-')) this.assign(s, {});
     }
+    this.pruneGuests();
     this.refreshAll(false, true);
+    this.emit('config-updated', config);
+  }
+
+  /** Models seen in token usage, most used first, with whether a price is configured. */
+  modelsSeen(): { model: string; tokens: number; priced: boolean }[] {
+    const by = new Map<string, number>();
+    for (const u of this.usage) if (u.model) by.set(u.model, (by.get(u.model) ?? 0) + usageTokens(u));
+    return [...by.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([model, tokens]) => ({ model, tokens, priced: !!findPrice(this.config.pricing, model) }));
   }
 
   // ---- ingest -------------------------------------------------------------
@@ -123,6 +138,9 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
       if (ev.channel === 'hook') s.hookSeenAt = ev.ts;
       // Hooks already report this session live; transcripts only add token usage.
       if (ev.channel === 'transcript' && s.hookSeenAt !== undefined && ev.signal !== 'usage') continue;
+      // A transcript read again (source restarted) replays events already applied.
+      if (opts.historic && ev.ts <= s.maxTs && ev.signal !== 'usage') continue;
+      if (ev.signal !== 'usage') s.maxTs = Math.max(s.maxTs, ev.ts);
 
       const hadBlock = !!s.block;
       applyEvent(s, ev);
@@ -135,7 +153,8 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
       if (flags?.manualIdleAt !== undefined && ev.signal !== 'usage' && ev.ts > flags.manualIdleAt) {
         flags.manualIdleAt = undefined; // new activity ends the manual break
       }
-      if (ev.usage) this.usage.push({ ...ev.usage, ts: ev.ts, agentId: s.agentId, sessionId: s.sessionId });
+      const usage = this.countableUsage(ev);
+      if (usage) this.usage.push({ ...usage, ts: ev.ts, agentId: s.agentId, sessionId: s.sessionId });
       if (ev.kind && ev.detail) {
         this.pushFeed({
           ts: ev.ts, agentId: s.agentId, sessionId: s.sessionId, source: ev.source,
@@ -367,6 +386,7 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
     } else if (ev.ctx?.env && s.agentId.startsWith('tamu-')) {
       // A hook can carry V_OFF_AGENT after a transcript created the session as a guest.
       this.assign(s, ev.ctx);
+      this.pruneGuests();
     }
     return s;
   }
@@ -387,6 +407,36 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
       });
     }
     s.agentId = id;
+  }
+
+  /** Usage not yet counted: for keyed transcript messages, only the growth past what was seen. */
+  private countableUsage(ev: NormalizedEvent): Usage | null {
+    if (!ev.usage) return null;
+    if (!ev.usageKey || !ev.usageTotal) return ev.usage;
+    const key = `${ev.sessionId}|${ev.usageKey}`;
+    const prev = this.usageByMessage.get(key);
+    const cur = ev.usageTotal;
+    const d: Usage = {
+      input: Math.max(0, cur.input - (prev?.input ?? 0)),
+      output: Math.max(0, cur.output - (prev?.output ?? 0)),
+      cacheRead: Math.max(0, cur.cacheRead - (prev?.cacheRead ?? 0)),
+      cacheWrite: Math.max(0, cur.cacheWrite - (prev?.cacheWrite ?? 0)),
+      model: cur.model,
+    };
+    this.usageByMessage.set(key, {
+      input: Math.max(cur.input, prev?.input ?? 0),
+      output: Math.max(cur.output, prev?.output ?? 0),
+      cacheRead: Math.max(cur.cacheRead, prev?.cacheRead ?? 0),
+      cacheWrite: Math.max(cur.cacheWrite, prev?.cacheWrite ?? 0),
+      model: cur.model,
+    });
+    return d.input + d.output + d.cacheRead + d.cacheWrite > 0 ? d : null;
+  }
+
+  /** Drop guest agents that no longer own any session (after re-matching). */
+  private pruneGuests(): void {
+    const owners = new Set([...this.sessions.values()].map((s) => s.agentId));
+    for (const id of this.guests.keys()) if (!owners.has(id)) this.guests.delete(id);
   }
 
   private flagsFor(agentId: string): AgentFlagsState {

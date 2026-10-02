@@ -91,5 +91,6 @@ export function defaultConfig(): Config {
     },
     rules: { workWindowSec: 90, idleAfterSec: 600 },
     ambience: { socialEvents: true, animations: true, blockedSound: false },
+    cleaner: { intervalMin: 15, logPaths: [] },
   } satisfies Config);
 }

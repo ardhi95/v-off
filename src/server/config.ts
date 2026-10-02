@@ -19,6 +19,7 @@ export function withDefaults(raw: Partial<Config>): Config {
     sources: { ...d.sources, ...raw.sources },
     rules: { ...d.rules, ...raw.rules },
     ambience: { ...d.ambience, ...raw.ambience },
+    cleaner: { ...d.cleaner, ...raw.cleaner },
   };
 }
 

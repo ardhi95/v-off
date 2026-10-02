@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { AgentWithRuntime, Department } from '../../src/shared/types.js';
-import { podsFrom, STATUS_STYLE, VIEWS } from './office/layout.js';
+import { pickQuip } from './office/behavior.js';
+import { podsFrom, STATUS_STYLE, VIEWS, type PlaySpot } from './office/layout.js';
 import { OfficeRenderer } from './office/renderer.js';
 import { toSceneAgents } from './sceneAgents.js';
 
@@ -12,7 +13,16 @@ interface Props {
   isDim?: (a: AgentWithRuntime) => boolean;
   cleanerAction: string;
   onCleanerAction: (text: string) => void;
+  /** Sticky play-spot assignment for idle agents (App owns it so the panel agrees). */
+  spots: Map<string, PlaySpot>;
+  /** Office boy stops from the cache scan: OB_PATH index -> label. */
+  cleanerStops: Map<number, string>;
+  /** Ambience setting; false behaves like prefers-reduced-motion. */
+  animations: boolean;
 }
+
+const QUIP_EVERY_MS = 3600;
+const QUIP_SHOW_MS = 2800;
 
 export interface OfficeStageHandle {
   /** Move the camera close to an agent ("Arahkan kamera"). */
@@ -34,7 +44,7 @@ function usePrefersReducedMotion(): boolean {
 
 /** 3D office canvas with name tags, room labels, and camera controls. */
 export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeStage(
-  { agents, departments, selected, onSelect, isDim, cleanerAction, onCleanerAction },
+  { agents, departments, selected, onSelect, isDim, cleanerAction, onCleanerAction, spots, cleanerStops, animations },
   ref,
 ) {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -46,12 +56,19 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
   const [auto, setAuto] = useState(false);
   const onCleanerRef = useRef(onCleanerAction);
   onCleanerRef.current = onCleanerAction;
-  const reduce = usePrefersReducedMotion();
+  const reduce = usePrefersReducedMotion() || !animations;
+  const [quip, setQuip] = useState<{ id: string; text: string } | null>(null);
 
   const pods = useMemo(() => podsFrom(departments), [departments]);
   const scene = useMemo(() => toSceneAgents(agents, departments, isDim), [agents, departments, isDim]);
   const sceneRef = useRef(scene);
   sceneRef.current = scene;
+  const spotsRef = useRef(spots);
+  spotsRef.current = spots;
+  const stopsRef = useRef(cleanerStops);
+  stopsRef.current = cleanerStops;
+  const agentsRef = useRef(agents);
+  agentsRef.current = agents;
 
   // (Re)create the renderer when the floor plan or motion preference changes.
   useEffect(() => {
@@ -65,7 +82,8 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
       return;
     }
     setNoGL(false);
-    r.setAgents(sceneRef.current);
+    r.setAgents(sceneRef.current, spotsRef.current);
+    r.setCleanerStops(stopsRef.current);
     r.start(stage);
     rendererRef.current = r;
     const onWheel = (e: WheelEvent) => {
@@ -81,8 +99,33 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
   }, [pods, reduce]);
 
   useEffect(() => {
-    rendererRef.current?.setAgents(scene);
-  }, [scene]);
+    rendererRef.current?.setAgents(scene, spots);
+  }, [scene, spots]);
+
+  useEffect(() => {
+    rendererRef.current?.setCleanerStops(cleanerStops);
+  }, [cleanerStops]);
+
+  // Speech bubbles: every 3.6 s a random visible agent says something for 2.8 s.
+  useEffect(() => {
+    let hide: ReturnType<typeof setTimeout> | undefined;
+    let current: string | null = null;
+    const tick = setInterval(() => {
+      const q = pickQuip(sceneRef.current, (id) => agentsRef.current.find((a) => a.id === id)?.quips, spotsRef.current, current);
+      if (!q) return;
+      current = q.id;
+      setQuip(q);
+      clearTimeout(hide);
+      hide = setTimeout(() => {
+        current = null;
+        setQuip(null);
+      }, QUIP_SHOW_MS);
+    }, QUIP_EVERY_MS);
+    return () => {
+      clearInterval(tick);
+      clearTimeout(hide);
+    };
+  }, []);
 
   useEffect(() => {
     rendererRef.current?.setSelected(selected);
@@ -189,6 +232,7 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
             <span className="tag-short">{a.short}</span>
             <span className={`tag-dot${a.runtime.status === 'macet' ? ' blink' : ''}`} style={{ background: st.fill }} />
             {a.walker && <span className="tag-extra">{cleanerAction}</span>}
+            {quip?.id === a.id && !dim && <span className="quip" aria-hidden="true">{quip.text}</span>}
           </button>
         );
       })}

@@ -135,3 +135,12 @@ main { padding: 20px 24px 32px; max-width: 1440px; margin: 0 auto; }
 .dialog-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
 .dialog-head h2 { margin: 0; font-size: 18px; color: #fff; }
 .dialog-meta { font-size: 12px; overflow-wrap: anywhere; }
+
+/* ---- Phase 4: speech bubbles ---- */
+.quip { position: absolute; left: 50%; bottom: calc(100% + 10px); transform: translateX(-50%); background: #fff; color: #1a1d24; padding: 7px 12px; border-radius: 14px; font-size: 13px; font-weight: 700; white-space: nowrap; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); animation: pop 0.25s ease-out; pointer-events: none; }
+.quip::after { content: ''; position: absolute; left: 50%; top: 100%; margin-left: -6px; border: 6px solid transparent; border-top-color: #fff; }
+@keyframes pop { 0% { transform: translateX(-50%) scale(0.6); opacity: 0; } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .quip { animation: none; } }
+.cleaner-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.cleaner-list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #222837; font-size: 13px; }
+.cleaner-list .mono { white-space: nowrap; }

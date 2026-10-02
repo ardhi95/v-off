@@ -1,8 +1,8 @@
 import { OrbitCamera, project } from './camera.js';
 import type { Groups } from './kit.js';
-import { OB_PATH, ROOM_ANCHORS, VIEWS, type PlaySpot, type Pod } from './layout.js';
+import { exitChain, OB_PATH, pathLength, pointAt, ROOM_ANCHORS, route, VIEWS, type Placement, type PlaySpot, type Pod, type XZ } from './layout.js';
 import { m4, Rx, Ry, T, type Mat4 } from './math.js';
-import { agentAnchors, assignSpots, buildRings, PeopleBuilder, type Anchors, type SceneAgent } from './people.js';
+import { agentAnchors, buildRings, PeopleBuilder, type Anchors, type SceneAgent } from './people.js';
 import { buildStatic } from './staticScene.js';
 
 // WebGL renderer for the office, ported from the mockup (initGL, upload,
@@ -24,6 +24,22 @@ gl_FragColor=vec4(col,vC.a);}`;
 
 const I4 = new Float32Array(T(0, 0, 0));
 const OB_PARTS = ['obBody', 'obLegL', 'obLegR', 'obArmL', 'obArmR', 'obMop'] as const;
+/** Agent walking speed between desk and lounge, cm/s. */
+const WALK_SPEED = 150;
+
+interface Transit {
+  path: XZ[];
+  len: number;
+  s: number;
+  x: number;
+  z: number;
+  yaw: number;
+}
+
+function samePlacement(a: Placement, b: Placement): boolean {
+  if (a.kind !== b.kind) return false;
+  return a.kind === 'spot' ? a.spot.k === (b as { spot: PlaySpot }).spot.k : a.seat.join() === (b as { seat: number[] }).seat.join();
+}
 
 export interface RendererOptions {
   reduceMotion?: boolean;
@@ -56,6 +72,11 @@ export class OfficeRenderer {
   private spots = new Map<string, PlaySpot>();
   private selected: string | null = null;
   private people = new PeopleBuilder();
+  /** Where each agent is (or is heading), to detect desk <-> lounge moves. */
+  private placement = new Map<string, Placement>();
+  private transits = new Map<string, Transit>();
+  /** OB_PATH index -> what the office boy mops there (from the cache scan). */
+  private obStops = new Map<number, string>();
   private needPeople = false;
   private needRings = false;
   private dirty = true;
@@ -115,13 +136,46 @@ export class OfficeRenderer {
     // Keep the context alive: React may mount a new renderer on the same canvas.
   }
 
-  /** Replace the scene's agents. Unchanged agents reuse cached geometry. */
-  setAgents(agents: SceneAgent[]): void {
+  /**
+   * Replace the scene's agents and their play spots. Unchanged agents reuse
+   * cached geometry. An agent whose place changes (desk <-> lounge) walks there.
+   */
+  setAgents(agents: SceneAgent[], spots: Map<string, PlaySpot>): void {
     this.agents = agents;
-    this.spots = assignSpots(agents);
+    this.spots = spots;
+    const seen = new Set<string>();
+    for (const a of agents) {
+      if (a.walker || !a.seat) continue;
+      seen.add(a.id);
+      const sp = spots.get(a.id);
+      const target: Placement = sp ? { kind: 'spot', spot: sp } : { kind: 'seat', seat: a.seat };
+      const prev = this.placement.get(a.id);
+      this.placement.set(a.id, target);
+      if (!prev || samePlacement(prev, target) || this.reduce) {
+        if (prev && !samePlacement(prev, target)) this.transits.delete(a.id);
+        continue;
+      }
+      const cur = this.transits.get(a.id);
+      // Re-routed mid-walk: head from where they are straight into the new route's corridor part.
+      const path: XZ[] = cur ? [[cur.x, cur.z], ...[...exitChain(target)].reverse()] : route(prev, target);
+      const p0 = pointAt(path, 0);
+      this.transits.set(a.id, { path, len: pathLength(path), s: 0, ...p0 });
+    }
+    for (const id of [...this.placement.keys()]) if (!seen.has(id)) this.placement.delete(id);
+    for (const id of [...this.transits.keys()]) if (!seen.has(id)) this.transits.delete(id);
     agentAnchors(agents, this.spots, this.anchors);
     this.needPeople = true;
     this.needRings = true;
+  }
+
+  /** Office boy stops from the dry-run cache scan (see cleanerStops). */
+  setCleanerStops(stops: Map<number, string>): void {
+    this.obStops = stops;
+    if (this.reduce && this.ob) this.ob = null; // re-park at the first stop
+  }
+
+  isWalking(id: string): boolean {
+    return this.transits.has(id);
   }
 
   /** Selection only rebuilds the floor rings. */
@@ -161,9 +215,9 @@ export class OfficeRenderer {
     return best;
   }
 
-  private upload(G: Groups | Record<string, Float32Array>, clearPrefix?: string): void {
+  private upload(G: Groups | Record<string, Float32Array>, clearPrefixes: string[] = []): void {
     const gl = this.gl;
-    if (clearPrefix) for (const k of Object.keys(this.counts)) if (k.startsWith(clearPrefix) && !G[k]) this.counts[k] = 0;
+    for (const k of Object.keys(this.counts)) if (clearPrefixes.some((p) => k.startsWith(p)) && !G[k]) this.counts[k] = 0;
     for (const [k, data] of Object.entries(G)) {
       const arr = data instanceof Float32Array ? data : new Float32Array(data);
       if (!this.bufs[k]) this.bufs[k] = gl.createBuffer()!;
@@ -197,22 +251,54 @@ export class OfficeRenderer {
     if (this.auto && !this.reduce) this.camera.rotate(0.0025);
     let moving = this.camera.step();
     if (this.needPeople) {
-      this.upload(this.people.build(this.agents, this.spots), 'i_');
+      const walking = new Set(this.transits.keys());
+      this.upload(this.people.build(this.agents, this.spots, walking), ['i_', 'w_']);
       this.needPeople = false;
       this.dirty = true;
     }
     if (this.needRings) {
-      this.upload(buildRings(this.agents, this.spots, this.selected));
+      this.upload(buildRings(this.agents, this.spots, this.selected, new Set(this.transits.keys())));
       this.needRings = false;
       this.dirty = true;
     }
-    const now = performance.now(), dt = Math.min(0.05, (now - (this.last || now)) / 1000);
+    // Cap at 0.25 s so slow frames keep real-time speed but a background tab does not jump.
+    const now = performance.now(), dt = Math.min(0.25, (now - (this.last || now)) / 1000);
     this.last = now;
     if (this.updateOB(dt)) moving = true;
+    if (this.updateTransits(dt)) moving = true;
     if (this.spots.size && !this.reduce) moving = true; // playing animations
     if (!moving && !this.dirty) return;
     this.dirty = false;
     this.draw(w, h);
+  }
+
+  /** Move walking agents along their routes. Returns true while anyone walks. */
+  private updateTransits(dt: number): boolean {
+    if (!this.transits.size) return false;
+    let arrived = false;
+    for (const [id, tr] of this.transits) {
+      tr.s += WALK_SPEED * dt;
+      const p = pointAt(tr.path, tr.s);
+      tr.x = p.x;
+      tr.z = p.z;
+      // Turn smoothly toward the walking direction.
+      let dy = p.yaw - tr.yaw;
+      while (dy > Math.PI) dy -= 2 * Math.PI;
+      while (dy < -Math.PI) dy += 2 * Math.PI;
+      tr.yaw += dy * Math.min(1, dt * 10);
+      this.anchors['p:' + id] = [tr.x, 172, tr.z];
+      this.anchors['h:' + id] = [tr.x, 100, tr.z];
+      if (tr.s >= tr.len) {
+        this.transits.delete(id);
+        arrived = true;
+      }
+    }
+    if (arrived) {
+      agentAnchors(this.agents, this.spots, this.anchors);
+      this.needPeople = true;
+      this.needRings = true;
+    }
+    return true;
   }
 
   private hasWalker(): boolean {
@@ -229,11 +315,13 @@ export class OfficeRenderer {
     if (!this.ob) {
       this.ob = { i: 1, x: P[0]!.x, z: P[0]!.z, yaw: Math.PI, phase: 0, wait: 0, mopT: 0 };
       if (this.reduce) {
-        const st = P[7]!;
+        // Parked at the first stop with a cache, or the start of the route.
+        const first = [...this.obStops.keys()].sort((a, b) => a - b)[0];
+        const st = P[first ?? 0]!;
         this.ob.x = st.x;
         this.ob.z = st.z;
         this.ob.wait = 1;
-        this.opts.onCleanerAction?.('Membersihkan ' + st.stop![0]);
+        this.opts.onCleanerAction?.(first === undefined ? 'Berkeliling mencari cache…' : 'Membersihkan ' + this.obStops.get(first));
       }
     } else if (this.reduce && this.obM) {
       return false;
@@ -251,10 +339,11 @@ export class OfficeRenderer {
       } else {
         const t = P[o.i]!, dx = t.x - o.x, dz = t.z - o.z, d = Math.hypot(dx, dz);
         if (d < 1.5) {
-          if (t.stop) {
+          const stop = this.obStops.get(o.i);
+          if (stop) {
             o.wait = 4.5;
             o.mopT = 0;
-            this.opts.onCleanerAction?.('Membersihkan ' + t.stop[0]);
+            this.opts.onCleanerAction?.('Membersihkan ' + stop);
           } else {
             o.i = (o.i + 1) % P.length;
           }
@@ -345,6 +434,15 @@ export class OfficeRenderer {
         const drift = this.reduce ? 0 : Math.sin(t * 1.3) * 30;
         gl.uniformMatrix4fv(this.loc.m, false, new Float32Array(T(500 + u * 150, 80 + bounce, 1150 + drift)));
         this.drawGroup('ball');
+      }
+      gl.uniformMatrix4fv(this.loc.m, false, I4);
+    }
+    if (this.transits.size) {
+      const t = performance.now() / 1000;
+      for (const [id, tr] of this.transits) {
+        const bob = Math.abs(Math.sin(t * 9 + tr.s * 0.01)) * 2.5;
+        gl.uniformMatrix4fv(this.loc.m, false, new Float32Array(m4(T(tr.x, bob, tr.z), Ry(tr.yaw))));
+        this.drawGroup('w_' + id);
       }
       gl.uniformMatrix4fv(this.loc.m, false, I4);
     }

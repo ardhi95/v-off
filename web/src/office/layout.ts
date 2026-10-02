@@ -94,35 +94,48 @@ export interface PlaySpot {
   hold: Hold;
   act: string;
   quip: string;
+  /** Path from the lounge corridor (z = 640) to the spot that avoids furniture. */
+  via?: [number, number][];
 }
 
 const H = Math.PI / 2;
 export const PLAY_SPOTS: PlaySpot[] = [
   { k: 'pp1', x: 325, z: 1150, yaw: H, pose: 'stand', hold: 'paddle', act: 'main pingpong', quip: 'Smash! Rasakan ini!' },
-  { k: 'pp2', x: 675, z: 1150, yaw: -H, pose: 'stand', hold: 'paddle', act: 'main pingpong', quip: 'Skor 10–9, ayo!' },
+  { k: 'pp2', x: 675, z: 1150, yaw: -H, pose: 'stand', hold: 'paddle', act: 'main pingpong', quip: 'Skor 10–9, ayo!', via: [[820, 640], [820, 1150]] },
   { k: 'f1', x: 700, z: 790, yaw: 0, pose: 'stand', hold: 'rod', act: 'main foosball', quip: 'Gooool!!' },
-  { k: 'f2', x: 700, z: 930, yaw: Math.PI, pose: 'stand', hold: 'rod', act: 'main foosball', quip: 'Curang, putar-putar!' },
-  { k: 'a1', x: -250, z: 845, yaw: Math.PI, pose: 'stand', hold: 'joy', act: 'main arcade', quip: 'Rekor baru!' },
-  { k: 'a2', x: -160, z: 845, yaw: Math.PI, pose: 'stand', hold: 'joy', act: 'main arcade', quip: 'Satu nyawa lagi…' },
-  { k: 's1', x: -760, z: 990, yaw: -H, pose: 'sit', yo: 8, hold: 'pad', act: 'main konsol di sofa', quip: 'Satu ronde lagi, deh.' },
-  { k: 's2', x: -760, z: 1110, yaw: -H, pose: 'sit', yo: 8, hold: 'pad', act: 'main konsol di sofa', quip: 'Jangan dekat-dekat bos!' },
-  { k: 'b1', x: 930, z: 960, yaw: -H, pose: 'sit', yo: 26, hold: 'cup', act: 'ngopi di pantry', quip: 'Kopinya enak hari ini.' },
-  { k: 'b2', x: 930, z: 1050, yaw: -H, pose: 'sit', yo: 26, hold: 'cup', act: 'ngopi di pantry', quip: 'Habis ini lanjut kerja.' },
+  { k: 'f2', x: 700, z: 930, yaw: Math.PI, pose: 'stand', hold: 'rod', act: 'main foosball', quip: 'Curang, putar-putar!', via: [[820, 640], [820, 930]] },
+  { k: 'a1', x: -250, z: 845, yaw: Math.PI, pose: 'stand', hold: 'joy', act: 'main arcade', quip: 'Rekor baru!', via: [[-330, 640], [-330, 845]] },
+  { k: 'a2', x: -160, z: 845, yaw: Math.PI, pose: 'stand', hold: 'joy', act: 'main arcade', quip: 'Satu nyawa lagi…', via: [[-330, 640], [-330, 845]] },
+  { k: 's1', x: -760, z: 990, yaw: -H, pose: 'sit', yo: 8, hold: 'pad', act: 'main konsol di sofa', quip: 'Satu ronde lagi, deh.', via: [[-830, 640], [-830, 990]] },
+  { k: 's2', x: -760, z: 1110, yaw: -H, pose: 'sit', yo: 8, hold: 'pad', act: 'main konsol di sofa', quip: 'Jangan dekat-dekat bos!', via: [[-830, 640], [-830, 1110]] },
+  { k: 'b1', x: 930, z: 960, yaw: -H, pose: 'sit', yo: 26, hold: 'cup', act: 'ngopi di pantry', quip: 'Kopinya enak hari ini.', via: [[850, 640], [850, 960]] },
+  { k: 'b2', x: 930, z: 1050, yaw: -H, pose: 'sit', yo: 26, hold: 'cup', act: 'ngopi di pantry', quip: 'Habis ini lanjut kerja.', via: [[850, 640], [850, 1050]] },
 ];
 
-/** Office boy route; `stop` = [label, GB freed] where he pauses to mop. */
+/**
+ * Office boy loop through every area. `area` marks a point where he may stop to
+ * mop when the cache scan found something there (see cleanerStops).
+ */
 export interface Waypoint {
   x: number;
   z: number;
-  stop?: [string, number];
+  area?: CleanerArea;
 }
+export type CleanerArea = 'pmo' | 'produk' | 'ceo' | 'eng' | 'cto' | 'data' | 'santai' | 'sofa' | 'soc';
 const D = (x: number, z: number): Waypoint => ({ x, z });
-const S = (x: number, z: number, label: string, gb: number): Waypoint => ({ x, z, stop: [label, gb] });
+const S = (x: number, z: number, area: CleanerArea): Waypoint => ({ x, z, area });
 export const OB_PATH: Waypoint[] = [
-  D(-900, 600), D(-900, -380), D(-575, -380), D(-575, -480), S(-600, -680, 'cache browser di ruang CEO', 0.4), D(-575, -480), D(-575, -380),
-  S(420, -340, 'node_modules/.cache di Tim Engineering', 1.2), D(575, -380), D(575, -480), D(930, -480), S(930, -700, 'log lama server di ruang CTO', 2.1), D(930, -480), D(575, -480), D(575, -380),
-  D(900, -380), D(900, 600), S(700, 560, 'cache dbt & Spark di Tim Data', 1.5), D(450, 620), S(450, 1000, 'file /tmp sesi lama di ruang santai', 0.6), S(-450, 1050, 'cache npm di dekat sofa', 0.9), S(-200, 520, 'cache Trivy di pusat keamanan', 0.8),
+  D(-900, 600), S(-900, 380, 'pmo'), D(-900, -380), S(-575, -380, 'produk'), D(-575, -480), S(-600, -680, 'ceo'), D(-575, -480), D(-575, -380),
+  S(420, -340, 'eng'), D(575, -380), D(575, -480), D(930, -480), S(930, -700, 'cto'), D(930, -480), D(575, -480), D(575, -380),
+  D(900, -380), D(900, 600), S(700, 560, 'data'), D(450, 620), S(450, 1000, 'santai'), S(-450, 1050, 'sofa'), S(-200, 520, 'soc'),
 ];
+
+/** Which floor area an agent's caches belong to (by seat). */
+export function areaOfSeat(seat: Agent['seat']): CleanerArea | undefined {
+  if (!seat) return undefined;
+  if ('room' in seat) return seat.room;
+  return ({ produk: 'produk', eng: 'eng', qa: 'soc', data: 'data', pmo: 'pmo' } as const)[seat.pod as 'produk'];
+}
 
 export const ROOM_ANCHORS: Record<string, [number, number, number]> = {
   'r:ceo': [-775, 268, -450],
@@ -162,3 +175,56 @@ export const STATUS_STYLE: Record<Status, { label: string; fill: string; bg: str
   bersih: { label: 'Bersih-bersih', fill: '#2fb5c9', bg: 'rgba(47,181,201,.16)', fg: '#8fe3f0', scr: '#8fe3f0' },
   idle: { label: 'Istirahat · main', fill: '#ff7a9c', bg: 'rgba(255,122,156,.16)', fg: '#ffb3c6', scr: '#2a2f3a' },
 };
+
+// ---- walking routes between a desk seat and a play spot ----
+
+export type XZ = [number, number];
+export type Placement = { kind: 'seat'; seat: SeatXYZ } | { kind: 'spot'; spot: PlaySpot };
+
+const CORRIDOR_X = 950;
+const LOUNGE_Z = 620;
+
+/** From a placement out to the shared corridor network (ends on z ≈ 620–640). */
+export function exitChain(p: Placement): XZ[] {
+  if (p.kind === 'spot') {
+    const s = p.spot;
+    const via = s.via ?? [[s.x, 640]];
+    return [[s.x, s.z], ...[...via].reverse()];
+  }
+  const seat = p.seat;
+  const sgn = seat[0] < 0 ? -1 : 1;
+  // Private rooms: leave through the glass door at x = ±575.
+  if (Math.abs(seat[0]) > 700 && seat[1] < -600) {
+    return [[seat[0], seat[1]], [sgn * 640, seat[1]], [sgn * 575, -520], [sgn * 575, -380], [sgn * CORRIDOR_X, -380], [sgn * CORRIDOR_X, LOUNGE_Z]];
+  }
+  const y = seat[2];
+  const back: XZ = [seat[0] - Math.sin(y) * 60, seat[1] - Math.cos(y) * 60];
+  return [[seat[0], seat[1]], back, [sgn * CORRIDOR_X, back[1]], [sgn * CORRIDOR_X, LOUNGE_Z]];
+}
+
+/** Waypoints from one placement to another, via the corridors. */
+export function route(from: Placement, to: Placement): XZ[] {
+  return [...exitChain(from), ...[...exitChain(to)].reverse()];
+}
+
+export function pathLength(pts: XZ[]): number {
+  let d = 0;
+  for (let i = 1; i < pts.length; i++) d += Math.hypot(pts[i]![0] - pts[i - 1]![0], pts[i]![1] - pts[i - 1]![1]);
+  return d;
+}
+
+/** Point and heading at distance `s` along the path. */
+export function pointAt(pts: XZ[], s: number): { x: number; z: number; yaw: number } {
+  let rest = Math.max(0, s);
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]!, b = pts[i]!;
+    const seg = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (rest <= seg || i === pts.length - 1) {
+      const t = seg ? Math.min(1, rest / seg) : 1;
+      return { x: a[0] + (b[0] - a[0]) * t, z: a[1] + (b[1] - a[1]) * t, yaw: Math.atan2(b[0] - a[0], b[1] - a[1]) };
+    }
+    rest -= seg;
+  }
+  const p = pts[pts.length - 1] ?? [0, 0];
+  return { x: p[0], z: p[1], yaw: 0 };
+}

@@ -11,6 +11,8 @@ export interface SceneAgent extends Look {
   dim: boolean;
   seat: SeatXYZ | null;
   monitors: 0 | 1 | 2;
+  /** Lounge priority when idle: 0 manual break, 1 idle after a session, 2 never had a session. */
+  idleRank?: number;
 }
 
 export const RING: Record<Status, string> = {
@@ -69,19 +71,24 @@ function pack(G: Groups): Record<string, Float32Array> {
 export class PeopleBuilder {
   private cache = new Map<string, CacheEntry>();
 
-  build(agents: SceneAgent[], spots: Map<string, PlaySpot>): PackedGroups {
+  /** `walking`: agents moving between desk and lounge (empty chair, body drawn by the renderer). */
+  build(agents: SceneAgent[], spots: Map<string, PlaySpot>, walking: ReadonlySet<string> = new Set()): PackedGroups {
     const parts: Record<string, Float32Array[]> = {};
     const seen = new Set<string>();
     for (const a of agents) {
       seen.add(a.id);
-      const sp = spots.get(a.id);
-      const sig = JSON.stringify([a, sp?.k]);
+      const walk = walking.has(a.id);
+      const sp = walk ? undefined : spots.get(a.id);
+      const sig = JSON.stringify([a, sp?.k, walk]);
       let entry = this.cache.get(a.id);
       if (!entry || entry.sig !== sig) {
-        entry = { sig, groups: pack(this.buildOne(a, sp)) };
+        entry = { sig, groups: pack(this.buildOne(a, sp, walk)) };
         this.cache.set(a.id, entry);
       }
-      for (const [k, arr] of Object.entries(entry.groups)) (parts[k === 'i' ? 'i_' + a.id : k] ??= []).push(arr);
+      for (const [k, arr] of Object.entries(entry.groups)) {
+        const key = k === 'i' ? 'i_' + a.id : k === 'w' ? 'w_' + a.id : k;
+        (parts[key] ??= []).push(arr);
+      }
     }
     for (const id of this.cache.keys()) if (!seen.has(id)) this.cache.delete(id);
     if ([...spots.values()].some((s) => s.hold === 'paddle')) {
@@ -104,7 +111,7 @@ export class PeopleBuilder {
     return out;
   }
 
-  private buildOne(a: SceneAgent, sp: PlaySpot | undefined): Groups {
+  private buildOne(a: SceneAgent, sp: PlaySpot | undefined, walking: boolean): Groups {
     const G: Groups = { ppl: [] };
     const K = new Kit(G);
     const pc = painter(a.dim);
@@ -112,7 +119,13 @@ export class PeopleBuilder {
       walker(K, a, a.status, pc);
       return G;
     }
-    if (a.seat) seated(K, a, a.seat, a.monitors, a.status, pc, a.dim, !!sp, SCREEN[a.status]);
+    if (a.seat) seated(K, a, a.seat, a.monitors, a.status, pc, a.dim, !!sp || walking, SCREEN[a.status]);
+    if (walking) {
+      // Walking body at the origin; the renderer moves it along the route.
+      K.use('w');
+      standBody(K, (x, y, z) => [x, y, z], K.X, K.Z, a, a.status, pc, 'desk');
+      return G;
+    }
     if (sp) {
       // Playing body is built at the origin; the renderer places and animates it.
       K.use('i');
@@ -126,7 +139,7 @@ export class PeopleBuilder {
   }
 }
 
-export function buildRings(agents: SceneAgent[], spots: Map<string, PlaySpot>, selected: string | null): Groups {
+export function buildRings(agents: SceneAgent[], spots: Map<string, PlaySpot>, selected: string | null, walking: ReadonlySet<string> = new Set()): Groups {
   const G: Groups = { rings: [], obT: [] };
   const K = new Kit(G);
   for (const a of agents) {
@@ -138,6 +151,7 @@ export function buildRings(agents: SceneAgent[], spots: Map<string, PlaySpot>, s
       K.ring(0, 1.7, 0, sel ? 30 : 31, sel ? 40 : 35, c, 40);
       continue;
     }
+    if (walking.has(a.id)) continue;
     const sp = spots.get(a.id);
     const c0 = sp ? [sp.x, 0, sp.z] : a.seat ? seatPoint(a.seat, 0, 0, -2) : null;
     if (!c0) continue;

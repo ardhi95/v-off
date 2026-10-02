@@ -101,6 +101,29 @@ export function AgentPanel({ agent: a, departments, events, spot, cleaner, clean
           <span className="mono muted small">repo: {rt.repo ?? '—'}{rt.gitBranch ? ` · ${rt.gitBranch}` : ''}</span>
         </div>
 
+        {a.walker && (
+          <div>
+            <h3 className="label">Bisa dibersihkan (dry-run)</h3>
+            {cleaner.items.length === 0 ? (
+              <p className="muted small">{cleaner.lastScanAt ? 'Tidak ada cache di daftar yang diizinkan.' : 'Pemindaian pertama sedang berjalan…'}</p>
+            ) : (
+              <>
+                <ul className="cleaner-list">
+                  {cleaner.items.slice(0, 6).map((it) => (
+                    <li key={it.path} title={it.path}>
+                      <span>{it.label}</span>
+                      <span className="mono">{it.partial ? '≥ ' : ''}{formatBytes(it.bytes)}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="muted small">
+                  Total {formatBytes(cleaner.totalBytes)}. Dipindai {formatTime(cleaner.lastScanAt ?? now)}. Udin hanya menghitung; tidak ada file yang dihapus.
+                </p>
+              </>
+            )}
+          </div>
+        )}
+
         <div className="stats">
           <div className="stat"><div className="stat-label">Token hari ini</div><div className="mono stat-value">{formatTokens(rt.tokensToday)}</div></div>
           <div className="stat">

@@ -11,6 +11,8 @@ Lihat `CLAUDE.md` (panduan kerja) dan `docs/SPEC.md` (spesifikasi).
   label nama, kamera orbit dengan preset, data live lewat SSE.
 - Fase 3 (Interaksi): panel detail agent, filter status, feed aktivitas, "Tandai sudah ditangani",
   "Istirahat & main" / "Kembali bekerja", ringkasan sesi, salin perintah `claude --resume`.
+- Fase 4 (Perilaku hidup): agent berjalan antara meja dan ruang santai, office boy berhenti di area
+  dengan cache terbesar (pindai dry-run, tidak ada file dihapus), gelembung celetukan.
 
 ## Menjalankan
 

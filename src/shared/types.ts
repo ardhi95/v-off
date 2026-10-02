@@ -146,12 +146,38 @@ export interface Config {
     webhook: SourceSettings;
   };
   rules: StatusRules;
-  ambience: { socialEvents: boolean; animations: boolean; blockedSound: boolean };
+  ambience: Ambience;
+  cleaner: CleanerSettings;
+}
+
+export interface Ambience {
+  socialEvents: boolean;
+  /** Walking, playing, and camera animations. Off behaves like prefers-reduced-motion. */
+  animations: boolean;
+  blockedSound: boolean;
+}
+
+export interface CleanerSettings {
+  /** Minutes between dry-run scans. */
+  intervalMin: number;
+  /** Folders whose *.log files older than 7 days count as cleanable. */
+  logPaths: string[];
+}
+
+export interface CleanerItem {
+  path: string;
+  label: string;
+  bytes: number;
+  /** Agent whose project owns this cache; absent for machine-wide caches. */
+  agentId?: string;
+  /** Size is a lower bound: the walk stopped at its file or time limit. */
+  partial?: boolean;
 }
 
 export interface CleanerState {
   mode: 'dry-run';
-  items: { path: string; label: string; bytes: number }[];
+  /** Largest first. */
+  items: CleanerItem[];
   totalBytes: number;
   lastScanAt: number | null;
 }
@@ -177,4 +203,5 @@ export interface StateSnapshot {
   departments: Department[];
   events: AgentEvent[];
   cleaner: CleanerState;
+  ambience: Ambience;
 }

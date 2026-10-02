@@ -148,3 +148,12 @@ describe('Store.sessionSummary', () => {
     expect(s.events[0]!.detail).toBe('f20');
   });
 });
+
+describe('Store.sessionDirs', () => {
+  it('lists each session cwd once with its agent', () => {
+    const { store, now } = setup();
+    store.ingest(hook('Stop', {}, now()));
+    store.ingest(parseHookPayload({ session_id: 'other', cwd: '/w/pmo-portal', hook_event_name: 'Stop' }, now()));
+    expect(store.sessionDirs()).toEqual([{ agentId: 'raka', cwd: '/w/pmo-portal' }]);
+  });
+});

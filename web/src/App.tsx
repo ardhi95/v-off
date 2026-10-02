@@ -5,9 +5,10 @@ import { ActivityFeed } from './ActivityFeed.js';
 import { AgentPanel } from './AgentPanel.js';
 import { useOfficeData } from './api.js';
 import { FilterBar } from './FilterBar.js';
-import { assignSpots } from './office/people.js';
+import { assignSpotsSticky, cleanerStops } from './office/behavior.js';
+import type { PlaySpot } from './office/layout.js';
 import { OfficeStage, type OfficeStageHandle } from './OfficeStage.js';
-import { defaultSelection, matchesFilter, resumeCommand, type FilterKey } from './present.js';
+import { defaultSelection, formatBytes, matchesFilter, resumeCommand, type FilterKey } from './present.js';
 import { toSceneAgents } from './sceneAgents.js';
 import { SessionDialog } from './SessionDialog.js';
 
@@ -62,7 +63,15 @@ export function App() {
   }, [selected, picked]);
   const agent = agents.find((a) => a.id === selected);
   const isDim = useCallback((a: AgentWithRuntime) => !matchesFilter(filter, a.runtime.status), [filter]);
-  const spots = useMemo(() => assignSpots(toSceneAgents(agents, departments)), [agents, departments]);
+  // Sticky spots: idle agents keep their game while others come and go.
+  const prevSpots = useRef(new Map<string, PlaySpot>());
+  const spots = useMemo(() => {
+    const next = assignSpotsSticky(toSceneAgents(agents, departments), prevSpots.current);
+    prevSpots.current = next;
+    return next;
+  }, [agents, departments]);
+  const cleanerItems = state?.cleaner.items;
+  const stops = useMemo(() => cleanerStops(cleanerItems ?? [], agents, formatBytes), [cleanerItems, agents]);
 
   const onMessage = async (sessionId: string) => {
     const cmd = resumeCommand(sessionId);
@@ -112,6 +121,9 @@ export function App() {
                   isDim={isDim}
                   cleanerAction={cleanerAction}
                   onCleanerAction={setCleanerAction}
+                  spots={spots}
+                  cleanerStops={stops}
+                  animations={state.ambience?.animations !== false}
                 />
                 <ActivityFeed events={state.events} agents={agents} departments={departments} onSelect={setPicked} />
               </section>

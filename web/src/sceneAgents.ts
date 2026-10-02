@@ -36,6 +36,7 @@ export function toSceneAgents(
       dim: isDim(a),
       seat: s?.seat ?? null,
       monitors: s?.monitors ?? 0,
+      idleRank: a.runtime.manualIdle ? 0 : a.runtime.sessionId ? 1 : 2,
       animal: SPECIES[a.animal] ? a.animal : 'dog',
       skin: sp.skin,
       acc: sp.acc,

@@ -178,6 +178,18 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
     return true;
   }
 
+  /** Working directories of known sessions, for per-project cache scanning. */
+  sessionDirs(): { agentId: string; cwd: string }[] {
+    const seen = new Set<string>();
+    const out: { agentId: string; cwd: string }[] = [];
+    for (const s of this.sessions.values()) {
+      if (!s.cwd || seen.has(s.cwd)) continue;
+      seen.add(s.cwd);
+      out.push({ agentId: s.agentId, cwd: s.cwd });
+    }
+    return out;
+  }
+
   setCleaner(state: CleanerState): void {
     this.cleaner = state;
     this.emit('cleaner-updated', state);
@@ -212,6 +224,7 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
       departments: this.config.departments,
       events: this.feed.slice(-SNAPSHOT_EVENTS).reverse(),
       cleaner: this.cleaner,
+      ambience: this.config.ambience,
     };
   }
 

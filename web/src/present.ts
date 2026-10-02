@@ -142,3 +142,20 @@ export function mergeLog(fetched: AgentEvent[], live: AgentEvent[], agentId: str
   }
   return out;
 }
+
+function luminance(hex: string): number {
+  const n = parseInt(hex.replace('#', '').padEnd(6, '0').slice(0, 6), 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * ch[0]! + 0.7152 * ch[1]! + 0.0722 * ch[2]!;
+}
+
+/** Text colour (white or black) with the higher contrast on `bg` (avatar initials on shirt colours). */
+export function inkOn(bg: string): string {
+  const L = luminance(bg);
+  const vsWhite = 1.05 / (L + 0.05);
+  const vsDark = (L + 0.05) / (luminance('#000000') + 0.05);
+  return vsWhite >= vsDark ? '#ffffff' : '#000000';
+}

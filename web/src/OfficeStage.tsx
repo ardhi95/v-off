@@ -3,6 +3,7 @@ import type { AgentWithRuntime, Department } from '../../src/shared/types.js';
 import { pickQuip } from './office/behavior.js';
 import { podsFrom, STATUS_STYLE, VIEWS, type PlaySpot } from './office/layout.js';
 import { OfficeRenderer } from './office/renderer.js';
+import { inkOn } from './present.js';
 import { toSceneAgents } from './sceneAgents.js';
 
 interface Props {
@@ -227,7 +228,7 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
             aria-pressed={sel}
             aria-label={`${a.name}, ${a.role}, ${st.label}`}
           >
-            <span className="tag-avatar" style={{ background: a.shirt }}>{a.name.charAt(0).toUpperCase()}</span>
+            <span className="tag-avatar" style={{ background: a.shirt, color: inkOn(a.shirt) }}>{a.name.charAt(0).toUpperCase()}</span>
             <span>{a.name}</span>
             <span className="tag-short">{a.short}</span>
             <span className={`tag-dot${a.runtime.status === 'macet' ? ' blink' : ''}`} style={{ background: st.fill }} />

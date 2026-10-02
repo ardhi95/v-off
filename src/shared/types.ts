@@ -205,3 +205,34 @@ export interface StateSnapshot {
   cleaner: CleanerState;
   ambience: Ambience;
 }
+
+// ---- report (GET /api/report) ----
+
+export type Period = 'day' | 'week' | 'month';
+
+export interface ReportRow {
+  sessions: number;
+  success: number;
+  tokens: number;
+  cost: number | null;
+  blocks: number;
+}
+
+export interface Report {
+  period: Period;
+  from: number;
+  to: number;
+  estimate: true;
+  totals: ReportRow & { successRate: number | null };
+  agents: (ReportRow & { agentId: string; name: string; dept: string })[];
+  departments: (ReportRow & { id: string; label: string })[];
+  /** Chart granularity: day = per hour, week = per day, month = per 7-day block. */
+  bucketUnit: 'hour' | 'day' | 'week';
+  buckets: { start: number; end: number; sessions: number; tokens: number; cost: number | null }[];
+}
+
+export interface BlockRecord {
+  ts: number;
+  agentId: string;
+  sessionId: string;
+}

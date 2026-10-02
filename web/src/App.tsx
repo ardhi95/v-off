@@ -10,7 +10,31 @@ import type { PlaySpot } from './office/layout.js';
 import { OfficeStage, type OfficeStageHandle } from './OfficeStage.js';
 import { defaultSelection, formatBytes, matchesFilter, resumeCommand, type FilterKey } from './present.js';
 import { toSceneAgents } from './sceneAgents.js';
+import { ReportPage } from './ReportPage.js';
 import { SessionDialog } from './SessionDialog.js';
+
+type Page = 'ruang' | 'laporan';
+
+function pageOf(pathname: string): Page {
+  return pathname.replace(/\/+$/, '') === '/laporan' ? 'laporan' : 'ruang';
+}
+
+/** Minimal client-side routing: "/" Ruang Tim, "/laporan" Laporan. */
+function usePage(): [Page, (p: Page) => void] {
+  const [page, setPage] = useState<Page>(() => pageOf(window.location.pathname));
+  useEffect(() => {
+    const on = () => setPage(pageOf(window.location.pathname));
+    window.addEventListener('popstate', on);
+    return () => window.removeEventListener('popstate', on);
+  }, []);
+  const go = useCallback((p: Page) => {
+    const path = p === 'laporan' ? '/laporan' : '/';
+    if (window.location.pathname !== path) window.history.pushState(null, '', path);
+    setPage(p);
+    window.scrollTo(0, 0);
+  }, []);
+  return [page, go];
+}
 
 function useClock(): string {
   const fmt = () =>
@@ -43,8 +67,34 @@ function useToast(): [string, (msg: string) => void] {
   return [toast, show];
 }
 
+function useEventCounter(newest: unknown): number {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (newest) setN((x) => x + 1);
+  }, [newest]);
+  return n;
+}
+
 export function App() {
   const { state, error, live } = useOfficeData();
+  const [page, go] = usePage();
+  useEffect(() => {
+    document.title = page === 'laporan' ? 'v-off · Laporan' : 'v-off · Ruang Tim';
+  }, [page]);
+  const navLink = (p: Page, label: string, href: string) => (
+    <a
+      href={href}
+      className={`nav-link${page === p ? ' is-active' : ''}`}
+      aria-current={page === p ? 'page' : undefined}
+      onClick={(e) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+        e.preventDefault();
+        go(p);
+      }}
+    >
+      {label}
+    </a>
+  );
   const [picked, setPicked] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>('semua');
   const [cleanerAction, setCleanerAction] = useState('Berkeliling mencari cache…');
@@ -71,6 +121,8 @@ export function App() {
     return next;
   }, [agents, departments]);
   const cleanerItems = state?.cleaner.items;
+  // Counts live events so the report refreshes as new activity arrives.
+  const eventCount = useEventCounter(state?.events[0]);
   const stops = useMemo(() => cleanerStops(cleanerItems ?? [], agents, formatBytes), [cleanerItems, agents]);
 
   const onMessage = async (sessionId: string) => {
@@ -92,8 +144,8 @@ export function App() {
           Kantor Agent
         </div>
         <nav className="nav" aria-label="Navigasi utama">
-          <a href="/" className="nav-link is-active" aria-current="page">Ruang Tim</a>
-          <a className="nav-link" aria-disabled="true" title="Segera hadir">Laporan</a>
+          {navLink('ruang', 'Ruang Tim', '/')}
+          {navLink('laporan', 'Laporan', '/laporan')}
           <a className="nav-link" aria-disabled="true" title="Segera hadir">Pengaturan Tim</a>
         </nav>
         <div className="topbar-right">
@@ -105,9 +157,12 @@ export function App() {
         </div>
       </header>
       <main>
-        <h1 className="page-title">Ruang Tim</h1>
         {error && <div className="notice" role="alert">{error}</div>}
-        {state ? (
+        {page === 'laporan' && state && (
+          <ReportPage agents={agents} departments={departments} eventCount={eventCount} onToast={showToast} />
+        )}
+        {page === 'ruang' && <h1 className="page-title">Ruang Tim</h1>}
+        {page !== 'ruang' ? null : state ? (
           <>
             <FilterBar agents={agents} value={filter} onChange={setFilter} />
             <div className="main-grid">

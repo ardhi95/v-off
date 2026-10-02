@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { AgentEvent, AgentWithRuntime, CleanerState, Department } from '../../src/shared/types.js';
 import { api } from './actions.js';
 import { SPECIES, STATUS_STYLE, type PlaySpot } from './office/layout.js';
-import { formatBytes, formatCost, formatDuration, formatTime, formatTokens, locationOf, logKind, mergeLog } from './present.js';
+import { formatBytes, formatCost, formatDuration, formatTime, formatTokens, inkOn, locationOf, logKind, mergeLog } from './present.js';
 
 interface Props {
   agent: AgentWithRuntime;
@@ -62,7 +62,7 @@ export function AgentPanel({ agent: a, departments, events, spot, cleaner, clean
   return (
     <aside aria-label="Detail agent" className="panel agent-panel">
       <div className="agent-head">
-        <span className="avatar" style={{ background: a.shirt, boxShadow: `0 0 0 3px #161a22, 0 0 0 5px ${st.fill}` }} aria-hidden="true">
+        <span className="avatar" style={{ background: a.shirt, color: inkOn(a.shirt), boxShadow: `0 0 0 3px #161a22, 0 0 0 5px ${st.fill}` }} aria-hidden="true">
           {a.name.charAt(0).toUpperCase()}
         </span>
         <div className="agent-id">

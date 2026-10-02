@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import type http from 'node:http';
 import { scan, scanTargets, tmpTargets } from './cleaner.js';
 import { loadConfig } from './config.js';
+import { loadHistory, saveHistory } from './history.js';
 import { createServer, listen } from './http.js';
 import { claudeHome, expandHome } from './paths.js';
 import { ClaudeTranscriptSource } from './sources/claudeTranscriptSource.js';
@@ -18,7 +19,14 @@ export interface App {
 
 export async function startApp(opts: { host?: string; port?: number } = {}): Promise<App> {
   const config = await loadConfig();
-  const store = new Store(config);
+  const store = new Store(config, Date.now, await loadHistory());
+  // Persist new blocks (debounced) so the report keeps them after a restart.
+  let saveTimer: NodeJS.Timeout | undefined;
+  const persist = () => saveHistory({ version: 1, blocks: store.blockHistory() }).catch((err: Error) => console.error('[v-off] riwayat gagal disimpan:', err.message));
+  store.on('block-added', () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => void persist(), 2000);
+  });
   const sources: SourceAdapter[] = [];
 
   if (config.sources.claudeCode.enabled) {
@@ -66,6 +74,10 @@ export async function startApp(opts: { host?: string; port?: number } = {}): Pro
       clearInterval(ticker);
       clearTimeout(firstScan);
       clearInterval(scanTimer);
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        await persist();
+      }
       for (const s of sources) s.stop();
       await new Promise<void>((r) => server.close(() => r()));
     },

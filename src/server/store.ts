@@ -1,7 +1,8 @@
 import { EventEmitter } from 'node:events';
 import path from 'node:path';
 import type {
-  Agent, AgentEvent, AgentRuntime, AgentWithRuntime, CleanerState, Config, ModelPrice, SessionSummary, StateSnapshot, Status, Usage,
+  Agent, AgentEvent, AgentRuntime, AgentWithRuntime, BlockRecord, CleanerState, Config, ModelPrice, Period, Report, ReportRow,
+  SessionSummary, StateSnapshot, Status, Usage,
 } from '../shared/types.js';
 import { clip } from './summarize.js';
 import { matchAgent } from './matcher.js';
@@ -25,32 +26,18 @@ interface AgentFlagsState {
   external?: { status: Status; at: number; task?: string; detail?: string };
 }
 
-export type Period = 'day' | 'week' | 'month';
-
-export interface ReportRow {
-  sessions: number;
-  success: number;
-  tokens: number;
-  cost: number | null;
-  blocks: number;
-}
-
-export interface Report {
-  period: Period;
-  from: number;
-  to: number;
-  estimate: true;
-  totals: ReportRow & { successRate: number | null };
-  agents: (ReportRow & { agentId: string; name: string; dept: string })[];
-  departments: (ReportRow & { id: string; label: string })[];
-  buckets: { start: number; tokens: number; cost: number | null }[];
-}
+export type { BlockRecord, Period, Report, ReportRow } from '../shared/types.js';
 
 export interface StoreEvents {
   'agent-updated': [AgentWithRuntime];
   'event-added': [AgentEvent];
   'cleaner-updated': [CleanerState];
+  /** A new block was recorded live (for history persistence). */
+  'block-added': [BlockRecord];
 }
+
+const HOUR = 3600_000;
+const DAY = 24 * HOUR;
 
 export function startOfDay(ts: number): number {
   const d = new Date(ts);
@@ -84,13 +71,34 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
   /** Per-session event history, insertion-ordered so the oldest session is dropped first. */
   private sessionLogs = new Map<string, { events: AgentEvent[]; truncated: boolean }>();
   private usage: UsageRecord[] = [];
-  private blockLog: { ts: number; agentId: string }[] = [];
+  private blockLog: BlockRecord[] = [];
+  /** Sessions whose blocks came from persisted history; replayed transcripts must not count them twice. */
+  private persistedBlockSessions = new Set<string>();
+  /** Hours (ms / 3600000) in which each session had activity. */
+  private activeHours = new Map<string, Set<number>>();
   private lastStatus = new Map<string, Status>();
   private cleaner: CleanerState = { mode: 'dry-run', items: [], totalBytes: 0, lastScanAt: null };
 
-  constructor(config: Config, private readonly clock: () => number = Date.now) {
+  constructor(config: Config, private readonly clock: () => number = Date.now, history?: { blocks: BlockRecord[] }) {
     super();
     this.config = config;
+    for (const b of history?.blocks ?? []) {
+      this.blockLog.push(b);
+      if (b.sessionId) this.persistedBlockSessions.add(b.sessionId);
+    }
+    this.blockLog.sort((a, b) => a.ts - b.ts);
+  }
+
+  /** Blocks to persist (last 31 days). */
+  blockHistory(): BlockRecord[] {
+    const cutoff = this.clock() - USAGE_RETENTION_MS;
+    return this.blockLog.filter((b) => b.ts >= cutoff);
+  }
+
+  private recordBlock(b: BlockRecord, historic: boolean): void {
+    if (historic && this.persistedBlockSessions.has(b.sessionId)) return;
+    this.blockLog.push(b);
+    if (!historic) this.emit('block-added', b);
   }
 
   getConfig(): Config {
@@ -118,7 +126,10 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
 
       const hadBlock = !!s.block;
       applyEvent(s, ev);
-      if (!hadBlock && s.block) this.blockLog.push({ ts: ev.ts, agentId: s.agentId });
+      if (!hadBlock && s.block) this.recordBlock({ ts: ev.ts, agentId: s.agentId, sessionId: s.sessionId }, !!opts.historic);
+      let hours = this.activeHours.get(s.sessionId);
+      if (!hours) this.activeHours.set(s.sessionId, (hours = new Set()));
+      hours.add(Math.floor(ev.ts / HOUR));
 
       const flags = this.flags.get(s.agentId);
       if (flags?.manualIdleAt !== undefined && ev.signal !== 'usage' && ev.ts > flags.manualIdleAt) {
@@ -142,7 +153,7 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
     if (!this.agentById(agentId)) return false;
     const now = this.clock();
     const flags = this.flagsFor(agentId);
-    if (status === 'macet' && flags.external?.status !== 'macet') this.blockLog.push({ ts: now, agentId });
+    if (status === 'macet' && flags.external?.status !== 'macet') this.recordBlock({ ts: now, agentId, sessionId: '' }, false);
     flags.external = { status, at: now, task, detail };
     flags.manualIdleAt = undefined;
     const text = clip([task, detail].filter(Boolean).join(' · ') || `Status: ${status}`);
@@ -258,10 +269,27 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
     };
   }
 
+  /** Sessions with any activity in [from, to). */
+  private sessionsActiveIn(from: number, to: number): SessionState[] {
+    const h0 = Math.floor(from / HOUR), h1 = Math.ceil(to / HOUR);
+    const out: SessionState[] = [];
+    for (const s of this.sessions.values()) {
+      const hours = this.activeHours.get(s.sessionId);
+      if (!hours) continue;
+      for (const h of hours) {
+        if (h >= h0 && h < h1) {
+          out.push(s);
+          break;
+        }
+      }
+    }
+    return out;
+  }
+
   report(period: Period): Report {
     const to = this.clock();
     const days = period === 'day' ? 1 : period === 'week' ? 7 : 30;
-    const from = startOfDay(to) - (days - 1) * 24 * 3600_000;
+    const from = startOfDay(to) - (days - 1) * DAY;
     const pricing = this.config.pricing;
     const empty = (): ReportRow => ({ sessions: 0, success: 0, tokens: 0, cost: 0, blocks: 0 });
     const addCost = (row: { cost: number | null }, u: Usage) => {
@@ -281,8 +309,7 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
       r.tokens += usageTokens(u);
       addCost(r, u);
     }
-    for (const s of this.sessions.values()) {
-      if (Math.max(s.lastActivityAt, s.startedAt) < from) continue;
+    for (const s of this.sessionsActiveIn(from, to + 1)) {
       const r = rowFor(s.agentId);
       r.sessions++;
       if (!s.hadUnresolvedError) r.success++;
@@ -303,23 +330,29 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
     const totals = sum(agents);
     const departments = this.config.departments
       .map((d) => ({ id: d.id, label: d.label, ...sum(agents.filter((a) => a.dept === d.id)) }))
-      .filter((d) => d.sessions > 0 || d.tokens > 0);
+      .filter((d) => d.sessions > 0 || d.tokens > 0 || d.blocks > 0);
 
-    const step = period === 'day' ? 3600_000 : 24 * 3600_000;
-    const count = period === 'day' ? 24 : days;
-    const buckets = Array.from({ length: count }, (_, i) => ({ start: from + i * step, tokens: 0, cost: 0 as number | null }));
+    const bucketUnit = period === 'day' ? 'hour' : period === 'week' ? 'day' : 'week';
+    const step = bucketUnit === 'hour' ? HOUR : bucketUnit === 'day' ? DAY : 7 * DAY;
+    const count = period === 'day' ? 24 : period === 'week' ? 7 : Math.ceil(30 / 7);
+    const end = from + days * DAY;
+    const buckets = Array.from({ length: count }, (_, i) => {
+      const start = from + i * step;
+      return { start, end: Math.min(end, start + step), sessions: 0, tokens: 0, cost: 0 as number | null };
+    });
     for (const u of this.usage) {
-      const i = Math.floor((u.ts - from) / step);
-      const b = buckets[i];
-      if (!b || u.ts > to) continue;
+      if (u.ts < from || u.ts > to) continue;
+      const b = buckets[Math.floor((u.ts - from) / step)];
+      if (!b) continue;
       b.tokens += usageTokens(u);
       addCost(b, u);
     }
+    for (const b of buckets) b.sessions = this.sessionsActiveIn(b.start, b.end).length;
 
     return {
       period, from, to, estimate: true,
       totals: { ...totals, successRate: totals.sessions ? totals.success / totals.sessions : null },
-      agents, departments, buckets,
+      agents, departments, bucketUnit, buckets,
     };
   }
 

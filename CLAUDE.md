@@ -70,6 +70,8 @@ Variabel lingkungan: `V_OFF_PORT` (default 4747), `V_OFF_HOST` (default 127.0.0.
 - `src/server/status.ts`: aturan status (SPEC §6), fungsi murni. `matcher.ts`: pemetaan sesi ke agent (SPEC §7).
 - `src/server/cleaner.ts`: pemindai cache office boy (SPEC §8), **dry-run saja**: hanya mengukur, tidak pernah
   menghapus atau mengikuti symlink. Jalan 3 detik setelah start lalu tiap `cleaner.intervalMin` menit.
+- `src/server/history.ts`: `~/.v-off/history.json`, riwayat hambatan (31 hari). Token dan sesi dibangun ulang dari
+  transkrip saat start; hambatan dari hooks hanya ada live, jadi disimpan di sini.
 - `src/server/store.ts`: state di memori, feed, token/biaya, laporan. `http.ts`: REST + SSE (SPEC §9), plus UI statis.
 - `web/src/office/`: renderer WebGL hasil port dari `Main.dc.html` (opsi b). `kit.ts` (geometri),
   `staticScene.ts` (lantai & furnitur), `characters.ts` (hewan & ekspresi), `people.ts` (kursi, tempat main,
@@ -79,3 +81,5 @@ Variabel lingkungan: `V_OFF_PORT` (default 4747), `V_OFF_HOST` (default 127.0.0.
   `present.ts`: helper murni (filter, format angka, teks feed, lokasi) yang dites.
 - `web/src/office/behavior.ts` (Fase 4): tempat main yang "lengket" dengan prioritas, stop office boy dari
   hasil pindai cache, pemilihan celetukan. Rute jalan meja <-> ruang santai ada di `layout.ts` (`route`).
+- `web/src/ReportPage.tsx` (Fase 5): halaman `/laporan`. `reportModel.ts` (view model murni, dites),
+  `postcardPng.ts` (kartu pos digambar di canvas 2D lalu diunduh sebagai PNG). Routing ada di `App.tsx`.

@@ -84,3 +84,21 @@ describe('feed and location', () => {
     expect(mergeLog(fetched, live, 'raka', 2)).toHaveLength(2);
   });
 });
+
+describe('inkOn', () => {
+  it('picks dark text on light shirts and white on dark ones', async () => {
+    const { inkOn } = await import('../src/present.js');
+    expect(inkOn('#e9e9ee')).toBe('#000000');
+    expect(inkOn('#2c3550')).toBe('#ffffff');
+    // Every default shirt colour gets readable initials (WCAG 4.5:1).
+    const lum = (h: string) => {
+      const n = parseInt(h.slice(1), 16);
+      const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * c[0]! + 0.7152 * c[1]! + 0.0722 * c[2]!;
+    };
+    for (const a of config.agents) {
+      const [x, y] = [lum(a.shirt), lum(inkOn(a.shirt))];
+      expect((Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05), a.id).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+});

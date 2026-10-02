@@ -13,6 +13,8 @@ Lihat `CLAUDE.md` (panduan kerja) dan `docs/SPEC.md` (spesifikasi).
   "Istirahat & main" / "Kembali bekerja", ringkasan sesi, salin perintah `claude --resume`.
 - Fase 4 (Perilaku hidup): agent berjalan antara meja dan ruang santai, office boy berhenti di area
   dengan cache terbesar (pindai dry-run, tidak ada file dihapus), gelembung celetukan.
+- Fase 5 (Laporan): `/laporan` dengan KPI, scorecard per agent, grafik sesi per jam/hari/minggu,
+  rincian per departemen, dan kartu pos akhir hari (unduh PNG). Biaya = estimasi dari tabel harga di config.
 
 ## Menjalankan
 

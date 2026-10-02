@@ -47,6 +47,11 @@ describe('matchAgent', () => {
     expect(matchAgent(agents, { cwd: `${os.homedir()}/work/pmo-portal`, gitBranch: 'feat/dashboard-x' })?.id).toBe('raka');
   });
 
+  it('lets V_OFF_AGENT win over an earlier agent\'s folder rule', () => {
+    const ctx = { cwd: `${os.homedir()}/work/pmo-portal`, env: { V_OFF_AGENT: 'nina' } };
+    expect(matchAgent(agents, ctx)?.id).toBe('nina');
+  });
+
   it('never maps sessions to the office boy, and returns undefined when nothing matches', () => {
     expect(matchAgent(agents, { env: { V_OFF_AGENT: 'udin' } })).toBeUndefined();
     expect(matchAgent(agents, { cwd: '/tmp/x' })).toBeUndefined();

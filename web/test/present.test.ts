@@ -54,6 +54,13 @@ describe('formatting', () => {
 
   it('builds the resume command', () => {
     expect(resumeCommand('abc-123')).toBe('claude --resume abc-123');
+    expect(resumeCommand('abc-123', '/Users/me/Application Support/x')).toBe(
+      "cd '/Users/me/Application Support/x' && claude --resume abc-123",
+    );
+    expect(resumeCommand('abc-123', '/w/v-off', "  tolong cek tes yang merah, ya. Jangan push dulu'  ")).toBe(
+      "cd /w/v-off && claude --resume abc-123 'tolong cek tes yang merah, ya. Jangan push dulu'\\'''",
+    );
+    expect(resumeCommand('abc-123', undefined, '   ')).toBe('claude --resume abc-123');
   });
 });
 

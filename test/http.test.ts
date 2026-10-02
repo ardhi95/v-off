@@ -64,6 +64,14 @@ describe('HTTP API', () => {
     expect(log.length).toBe(2);
   });
 
+  it('GET /api/sessions/:id summarizes a session', async () => {
+    await post('/api/hook?agent=raka', { session_id: 'sx', hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: { file_path: 'a.ts' } });
+    const res = await fetch(`${base}/api/sessions/sx`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ agentId: 'raka', events: [{ detail: 'a.ts' }] });
+    expect((await fetch(`${base}/api/sessions/none`)).status).toBe(404);
+  });
+
   it('validates the generic webhook', async () => {
     expect((await post('/api/status', { agentId: 'yoga', status: 'nope' })).status).toBe(400);
     expect((await post('/api/status', { agentId: 'nobody', status: 'kerja' })).status).toBe(404);

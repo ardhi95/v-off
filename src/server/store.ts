@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
 import path from 'node:path';
 import type {
-  Agent, AgentEvent, AgentRuntime, AgentWithRuntime, CleanerState, Config, ModelPrice, StateSnapshot, Status, Usage,
+  Agent, AgentEvent, AgentRuntime, AgentWithRuntime, CleanerState, Config, ModelPrice, SessionSummary, StateSnapshot, Status, Usage,
 } from '../shared/types.js';
 import { clip } from './summarize.js';
 import { matchAgent } from './matcher.js';
@@ -11,6 +11,8 @@ import { applyEvent, computeStatus, newSession, type SessionState } from './stat
 const FEED_LIMIT = 500;
 const SNAPSHOT_EVENTS = 50;
 const USAGE_RETENTION_MS = 31 * 24 * 3600_000;
+export const SESSION_LOG_LIMIT = 300;
+const SESSION_LOGS_KEPT = 200;
 
 interface UsageRecord extends Usage {
   ts: number;
@@ -79,6 +81,8 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
   private guests = new Map<string, Agent>();
   private flags = new Map<string, AgentFlagsState>();
   private feed: AgentEvent[] = [];
+  /** Per-session event history, insertion-ordered so the oldest session is dropped first. */
+  private sessionLogs = new Map<string, { events: AgentEvent[]; truncated: boolean }>();
   private usage: UsageRecord[] = [];
   private blockLog: { ts: number; agentId: string }[] = [];
   private lastStatus = new Map<string, Status>();
@@ -160,7 +164,7 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
     }
     const flags = this.flags.get(agentId);
     if (flags?.external?.status === 'macet') flags.external = { status: 'kerja', at: now };
-    this.pushFeed({ ts: now, agentId, sessionId: s?.sessionId ?? '', source: 'webhook', kind: 'notify', detail: 'Hambatan ditandai sudah ditangani' }, true);
+    this.pushFeed({ ts: now, agentId, sessionId: s?.sessionId ?? '', source: 'webhook', kind: 'message', detail: 'Hambatan ditandai sudah ditangani' }, true);
     this.refresh(agentId, true, true);
     return true;
   }
@@ -218,6 +222,27 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
       if (this.feed[i]!.agentId === agentId) out.push(this.feed[i]!);
     }
     return out;
+  }
+
+  sessionSummary(sessionId: string): SessionSummary | undefined {
+    const s = this.sessions.get(sessionId);
+    if (!s) return undefined;
+    const log = this.sessionLogs.get(sessionId);
+    let tokens = 0;
+    for (const u of this.usage) if (u.sessionId === sessionId) tokens += usageTokens(u);
+    return {
+      sessionId,
+      agentId: s.agentId,
+      agentName: this.agentById(s.agentId)?.name ?? s.agentId,
+      cwd: s.cwd,
+      gitBranch: s.gitBranch,
+      startedAt: s.startedAt,
+      lastActivityAt: s.lastActivityAt,
+      endedAt: s.endedAt,
+      tokens,
+      events: log?.events ?? [],
+      truncated: log?.truncated ?? false,
+    };
   }
 
   report(period: Period): Report {
@@ -396,6 +421,19 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
   private pushFeed(ev: AgentEvent, notify: boolean): void {
     this.feed.push(ev);
     if (this.feed.length > FEED_LIMIT) this.feed.splice(0, this.feed.length - FEED_LIMIT);
+    if (ev.sessionId) {
+      let log = this.sessionLogs.get(ev.sessionId);
+      if (!log) {
+        log = { events: [], truncated: false };
+        this.sessionLogs.set(ev.sessionId, log);
+        if (this.sessionLogs.size > SESSION_LOGS_KEPT) this.sessionLogs.delete(this.sessionLogs.keys().next().value!);
+      }
+      log.events.push(ev);
+      if (log.events.length > SESSION_LOG_LIMIT) {
+        log.events.splice(0, log.events.length - SESSION_LOG_LIMIT);
+        log.truncated = true;
+      }
+    }
     if (notify) this.emit('event-added', ev);
   }
 }

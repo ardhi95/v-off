@@ -193,6 +193,13 @@ export function createServer(store: Store, opts: ServerOptions = {}): http.Serve
         return send(res, 200, { ok: true });
       }
 
+      const sessionRoute = /^\/api\/sessions\/([^/]+)$/.exec(url.pathname);
+      if (sessionRoute && method === 'GET') {
+        const summary = store.sessionSummary(decodeURIComponent(sessionRoute[1]!));
+        if (!summary) throw new HttpError(404, 'Sesi tidak ditemukan.');
+        return send(res, 200, summary);
+      }
+
       const agentAction = /^\/api\/agents\/([^/]+)\/(resolve|idle|log)$/.exec(url.pathname);
       if (agentAction) {
         const id = decodeURIComponent(agentAction[1]!);

@@ -9,6 +9,8 @@ Lihat `CLAUDE.md` (panduan kerja) dan `docs/SPEC.md` (spesifikasi).
   REST dan SSE, aturan status, serta pemetaan agent.
 - Fase 2 (Ruang Tim 3D): kantor 3D sesuai mockup, karakter hewan dengan ekspresi per status,
   label nama, kamera orbit dengan preset, data live lewat SSE.
+- Fase 3 (Interaksi): panel detail agent, filter status, feed aktivitas, "Tandai sudah ditangani",
+  "Istirahat & main" / "Kembali bekerja", ringkasan sesi, salin perintah `claude --resume`.
 
 ## Menjalankan
 
@@ -25,7 +27,8 @@ npm test
 GET  /api/state              GET  /api/stream (SSE)
 POST /api/hook               POST /api/status
 POST /api/agents/:id/resolve POST /api/agents/:id/idle  {idle}
-GET  /api/agents/:id/log     GET  /api/report?period=day|week|month
+GET  /api/agents/:id/log     GET  /api/sessions/:id
+GET  /api/report?period=day|week|month
 GET  /api/config             PUT  /api/config
 POST /api/cleaner/clean      (dry-run di v1, belum tersedia)
 ```

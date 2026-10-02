@@ -125,3 +125,26 @@ describe('Store', () => {
     expect(store.snapshot().agents.find((a) => a.id === 'udin')!.runtime.status).toBe('bersih');
   });
 });
+
+describe('Store.sessionSummary', () => {
+  it('returns a privacy-safe history and token total for one session', () => {
+    const { store, now } = setup();
+    store.ingest(hook('UserPromptSubmit', { prompt: 'rahasia sekali' }, now()));
+    store.ingest(hook('PreToolUse', { tool_name: 'Edit', tool_input: { file_path: 'a.ts' } }, now()));
+    store.ingest([usageEv(now())]);
+    const s = store.sessionSummary('sess-raka')!;
+    expect(s).toMatchObject({ agentId: 'raka', agentName: 'Raka', cwd: '/w/pmo-portal', tokens: 1500, truncated: false });
+    expect(s.events.map((e) => e.kind)).toEqual(['prompt', 'edit']);
+    expect(JSON.stringify(s)).not.toContain('rahasia');
+    expect(store.sessionSummary('nope')).toBeUndefined();
+  });
+
+  it('caps each session log and marks it truncated', () => {
+    const { store, now } = setup();
+    for (let i = 0; i < 320; i++) store.ingest(hook('PreToolUse', { tool_name: 'Read', tool_input: { file_path: `f${i}` } }, now() + i));
+    const s = store.sessionSummary('sess-raka')!;
+    expect(s.events).toHaveLength(300);
+    expect(s.truncated).toBe(true);
+    expect(s.events[0]!.detail).toBe('f20');
+  });
+});

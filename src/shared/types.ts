@@ -156,6 +156,22 @@ export interface CleanerState {
   lastScanAt: number | null;
 }
 
+/** Privacy-safe summary of one session for "Lihat sesi lengkap" (no prompt text). */
+export interface SessionSummary {
+  sessionId: string;
+  agentId: string;
+  agentName: string;
+  cwd?: string;
+  gitBranch?: string;
+  startedAt: number;
+  lastActivityAt: number;
+  endedAt?: number;
+  tokens: number;
+  /** Oldest first, at most SESSION_LOG_LIMIT entries. */
+  events: AgentEvent[];
+  truncated: boolean;
+}
+
 export interface StateSnapshot {
   agents: AgentWithRuntime[];
   departments: Department[];

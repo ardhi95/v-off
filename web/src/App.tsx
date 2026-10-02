@@ -1,6 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { AgentWithRuntime } from '../../src/shared/types.js';
+import { copyText } from './actions.js';
+import { ActivityFeed } from './ActivityFeed.js';
+import { AgentPanel } from './AgentPanel.js';
 import { useOfficeData } from './api.js';
-import { OfficeStage } from './OfficeStage.js';
+import { FilterBar } from './FilterBar.js';
+import { assignSpots } from './office/people.js';
+import { OfficeStage, type OfficeStageHandle } from './OfficeStage.js';
+import { defaultSelection, matchesFilter, resumeCommand, type FilterKey } from './present.js';
+import { toSceneAgents } from './sceneAgents.js';
+import { SessionDialog } from './SessionDialog.js';
 
 function useClock(): string {
   const fmt = () =>
@@ -13,10 +22,52 @@ function useClock(): string {
   return now;
 }
 
+function useNow(ms: number): number {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), ms);
+    return () => clearInterval(t);
+  }, [ms]);
+  return now;
+}
+
+function useToast(): [string, (msg: string) => void] {
+  const [toast, setToast] = useState('');
+  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const show = useCallback((msg: string) => {
+    setToast(msg);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setToast(''), 2600);
+  }, []);
+  return [toast, show];
+}
+
 export function App() {
   const { state, error, live } = useOfficeData();
-  const [selected, setSelected] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterKey>('semua');
+  const [cleanerAction, setCleanerAction] = useState('Berkeliling mencari cache…');
+  const [sessionOpen, setSessionOpen] = useState<string | null>(null);
+  const [toast, showToast] = useToast();
+  const stageRef = useRef<OfficeStageHandle>(null);
   const clock = useClock();
+  const now = useNow(30_000);
+
+  const agents = useMemo(() => state?.agents ?? [], [state]);
+  const departments = useMemo(() => state?.departments ?? [], [state]);
+  const selected = picked && agents.some((a) => a.id === picked && !a.hidden) ? picked : defaultSelection(agents);
+  // Pin the default choice so the panel does not jump once that agent's status changes.
+  useEffect(() => {
+    if (selected && selected !== picked) setPicked(selected);
+  }, [selected, picked]);
+  const agent = agents.find((a) => a.id === selected);
+  const isDim = useCallback((a: AgentWithRuntime) => !matchesFilter(filter, a.runtime.status), [filter]);
+  const spots = useMemo(() => assignSpots(toSceneAgents(agents, departments)), [agents, departments]);
+
+  const onMessage = async (sessionId: string) => {
+    const cmd = resumeCommand(sessionId);
+    showToast((await copyText(cmd)) ? `Disalin: ${cmd}` : `Salin manual: ${cmd}`);
+  };
 
   return (
     <div style={{ minHeight: '100vh' }}>
@@ -48,12 +99,46 @@ export function App() {
         <h1 className="page-title">Ruang Tim</h1>
         {error && <div className="notice" role="alert">{error}</div>}
         {state ? (
-          <section aria-label="Kantor 3D">
-            <OfficeStage agents={state.agents} departments={state.departments} selected={selected} onSelect={setSelected} />
-          </section>
+          <>
+            <FilterBar agents={agents} value={filter} onChange={setFilter} />
+            <div className="main-grid">
+              <section aria-label="Kantor 3D" className="stack">
+                <OfficeStage
+                  ref={stageRef}
+                  agents={agents}
+                  departments={departments}
+                  selected={selected}
+                  onSelect={setPicked}
+                  isDim={isDim}
+                  cleanerAction={cleanerAction}
+                  onCleanerAction={setCleanerAction}
+                />
+                <ActivityFeed events={state.events} agents={agents} departments={departments} onSelect={setPicked} />
+              </section>
+              {agent ? (
+                <AgentPanel
+                  agent={agent}
+                  departments={departments}
+                  events={state.events}
+                  spot={spots.get(agent.id)}
+                  cleaner={state.cleaner}
+                  cleanerAction={cleanerAction}
+                  now={now}
+                  onToast={showToast}
+                  onFocus={() => stageRef.current?.focus(agent.id)}
+                  onOpenSession={setSessionOpen}
+                  onMessage={onMessage}
+                />
+              ) : (
+                <aside className="panel agent-panel empty-panel">Belum ada agent. Tambahkan di Pengaturan.</aside>
+              )}
+            </div>
+            {sessionOpen && <SessionDialog sessionId={sessionOpen} onClose={() => setSessionOpen(null)} />}
+          </>
         ) : (
-          !error && <p style={{ color: 'var(--muted)' }}>Memuat kantor…</p>
+          !error && <p className="muted">Memuat kantor…</p>
         )}
+        {toast && <div role="status" className="toast">{toast}</div>}
       </main>
     </div>
   );

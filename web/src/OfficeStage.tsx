@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { AgentWithRuntime, Department } from '../../src/shared/types.js';
 import { podsFrom, STATUS_STYLE, VIEWS } from './office/layout.js';
 import { OfficeRenderer } from './office/renderer.js';
@@ -10,6 +10,13 @@ interface Props {
   selected: string | null;
   onSelect: (id: string) => void;
   isDim?: (a: AgentWithRuntime) => boolean;
+  cleanerAction: string;
+  onCleanerAction: (text: string) => void;
+}
+
+export interface OfficeStageHandle {
+  /** Move the camera close to an agent ("Arahkan kamera"). */
+  focus(id: string): void;
 }
 
 function usePrefersReducedMotion(): boolean {
@@ -26,7 +33,10 @@ function usePrefersReducedMotion(): boolean {
 }
 
 /** 3D office canvas with name tags, room labels, and camera controls. */
-export function OfficeStage({ agents, departments, selected, onSelect, isDim }: Props) {
+export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeStage(
+  { agents, departments, selected, onSelect, isDim, cleanerAction, onCleanerAction },
+  ref,
+) {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<OfficeRenderer | null>(null);
@@ -34,7 +44,8 @@ export function OfficeStage({ agents, departments, selected, onSelect, isDim }: 
   const [noGL, setNoGL] = useState(false);
   const [view, setView] = useState<string>('kantor');
   const [auto, setAuto] = useState(false);
-  const [cleanerAction, setCleanerAction] = useState('Berkeliling mencari cache…');
+  const onCleanerRef = useRef(onCleanerAction);
+  onCleanerRef.current = onCleanerAction;
   const reduce = usePrefersReducedMotion();
 
   const pods = useMemo(() => podsFrom(departments), [departments]);
@@ -48,7 +59,7 @@ export function OfficeStage({ agents, departments, selected, onSelect, isDim }: 
     if (!canvas || !stage) return;
     let r: OfficeRenderer;
     try {
-      r = new OfficeRenderer(canvas, pods, { reduceMotion: reduce, onCleanerAction: setCleanerAction });
+      r = new OfficeRenderer(canvas, pods, { reduceMotion: reduce, onCleanerAction: (s) => onCleanerRef.current(s) });
     } catch {
       setNoGL(true);
       return;
@@ -87,6 +98,14 @@ export function OfficeStage({ agents, departments, selected, onSelect, isDim }: 
   });
 
   const cam = () => rendererRef.current?.camera;
+  useImperativeHandle(ref, () => ({
+    focus(id: string) {
+      const p = rendererRef.current?.anchor('h:' + id);
+      if (!p) return;
+      cam()?.focus(p[0]!, p[2]!);
+      setView('');
+    },
+  }), []);
   const goView = (key: string) => {
     const v = VIEWS[key];
     if (!v) return;
@@ -199,4 +218,4 @@ export function OfficeStage({ agents, departments, selected, onSelect, isDim }: 
       <span className="stage-hint">Seret untuk memutar · scroll untuk zoom · klik karakter untuk memilih</span>
     </div>
   );
-}
+});

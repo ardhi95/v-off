@@ -72,4 +72,6 @@ Variabel lingkungan: `V_OFF_PORT` (default 4747), `V_OFF_HOST` (default 127.0.0.
 - `web/src/office/`: renderer WebGL hasil port dari `Main.dc.html` (opsi b). `kit.ts` (geometri),
   `staticScene.ts` (lantai & furnitur), `characters.ts` (hewan & ekspresi), `people.ts` (kursi, tempat main,
   cache geometri per agent), `camera.ts` (orbit & preset), `renderer.ts` (loop, office boy, label).
-- `web/src/OfficeStage.tsx`: kanvas, label nama, kontrol kamera. `api.ts`: `/api/state` + SSE.
+- `web/src/OfficeStage.tsx`: kanvas, label nama, kontrol kamera. `api.ts`: `/api/state` + SSE. `actions.ts`: aksi REST.
+- `web/src/AgentPanel.tsx`, `FilterBar.tsx`, `ActivityFeed.tsx`, `SessionDialog.tsx`: interaksi (Fase 3).
+  `present.ts`: helper murni (filter, format angka, teks feed, lokasi) yang dites.

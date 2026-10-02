@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Pengaturan Tim</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#0f1218}
+a{color:#f5b83d}a:hover{color:#ffd27a}
+.px{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;letter-spacing:0}
+.mono{font-family:'JetBrains Mono',monospace}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.nav-link{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:999px;color:#b9bfcc;text-decoration:none;font-weight:600;font-size:14px}
+.nav-link:hover{color:#ffffff;background:#1d2230}
+.nav-link.is-active{color:#1a1205;background:#f5b83d}
+.panel{background:#161a22;border:1px solid #252b38;border-radius:18px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:12px;border:0;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:14px;cursor:pointer}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.px-blink{animation:blink 1s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){.px-blink{animation:none}}
+.two{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:1100px){.two{grid-template-columns:minmax(0,1fr)}}
+.row{display:grid;grid-template-columns:40px minmax(0,1fr) minmax(0,1fr) 170px 130px 150px 64px;gap:10px;align-items:center}
+.field{box-sizing:border-box;width:100%;min-height:44px;padding:0 12px;border-radius:10px;background:#0f1218;color:#e8eaf0;border:1px solid #2a3140;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px}
+.field:focus{outline:none;border-color:#f5b83d}
+.sw{width:24px;height:24px;border-radius:50%;border:2px solid #161a22;cursor:pointer;padding:0}
+.sw.is-on{outline:2px solid #f5b83d;outline-offset:2px}
+.toggle{display:flex;align-items:center;gap:12px;min-height:44px;cursor:pointer}
+.toggle input{width:20px;height:20px;accent-color:#f5b83d;margin:0}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #0f1218; color: #e8eaf0; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 15px">
+<header style="display: flex; align-items: center; gap: 24px; padding: 12px 24px; background: #12151c; border-bottom: 1px solid #222837; flex-wrap: wrap">
+<div style="display: flex; align-items: center; gap: 10px">
+<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="1" y="1" width="28" height="28" rx="9" fill="#f5b83d"></rect><ellipse cx="15" cy="17" rx="8" ry="4.5" fill="#1a1205"></ellipse><circle cx="8" cy="10" r="2.6" fill="#1a1205"></circle><circle cx="15" cy="8.5" r="2.6" fill="#1a1205"></circle><circle cx="22" cy="10" r="2.6" fill="#1a1205"></circle></svg>
+<span style="font-size: 18px; font-weight: 800; color: #ffffff">Kantor Agent</span>
+</div>
+<nav aria-label="Navigasi utama" style="display: flex; gap: 6px; flex-wrap: wrap">
+<a href="Main.dc.html" class="nav-link">Ruang Tim</a>
+<a href="Laporan.dc.html" class="nav-link">Laporan</a>
+<a href="Pengaturan.dc.html" class="nav-link is-active" aria-current="page">Pengaturan Tim</a>
+</nav>
+<div style="margin-left: auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap">
+<span style="display: inline-flex; align-items: center; gap: 8px; color: #9aa1b2; font-size: 13px"><span class="px-blink" style="width: 9px; height: 9px; border-radius: 50%; background: #35b87a; display: inline-block"></span>Langsung</span>
+<span class="mono" style="color: #c9ccd8; font-size: 13px">Jum, 2 Okt 2026 · 14:32 WIB</span>
+<span style="font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px dashed #4a5368; color: #9aa1b2">Data contoh</span>
+</div>
+</header>
+
+<main style="padding: 20px 24px 120px; max-width: 1440px; margin: 0 auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+<div>
+<h1 class="px" style="margin: 0; font-size: 22px; color: #ffffff">Pengaturan Tim</h1>
+<p style="margin: 6px 0 0; color: #9aa1b2; font-size: 14px">Beri nama, peran, departemen, dan warna untuk setiap agent yang muncul di lantai kantor.</p>
+</div>
+
+<div class="two">
+<section class="panel" aria-labelledby="h-ag" style="padding: 18px; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px">
+<h2 id="h-ag" class="px" style="margin: 0; font-size: 14px; color: #f5b83d">Daftar agent</h2>
+<span class="mono" style="font-size: 13px; color: #9aa1b2">{{shownCount}} dari {{total}} tampil di lantai</span>
+</div>
+<div style="overflow-x: auto">
+<div style="min-width: 880px">
+<div class="row" style="border-bottom: 2px solid #2a3140; padding-bottom: 8px">
+<span></span>
+<span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #9aa1b2">Nama</span>
+<span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #9aa1b2">Peran</span>
+<span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #9aa1b2">Departemen</span>
+<span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #9aa1b2">Tool</span>
+<span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #9aa1b2">Warna baju</span>
+<span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #9aa1b2">Tampil</span>
+</div>
+<sc-for list="{{agents}}" as="a" hint-placeholder-count="18">
+<div class="row" style="padding: 8px 0; border-bottom: 1px solid #222837; opacity: {{a.op}}">
+<span style="width: 34px; height: 34px; border-radius: 50%; background: {{a.shirt}}; color: #ffffff; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800">{{a.ini}}</span>
+<label><span class="sr">Nama agent {{$index}}</span><input class="field" type="text" value="{{a.name}}" onChange="{{a.onName}}"></label>
+<label><span class="sr">Peran {{a.name}}</span><input class="field" type="text" value="{{a.role}}" onChange="{{a.onRole}}"></label>
+<label><span class="sr">Departemen {{a.name}}</span><select class="field" value="{{a.dept}}" onChange="{{a.onDept}}"><sc-for list="{{a.deptOpts}}" as="o" hint-placeholder-count="2"><option value="{{o.v}}">{{o.v}}</option></sc-for></select></label>
+<label><span class="sr">Tool {{a.name}}</span><select class="field" value="{{a.tool}}" onChange="{{a.onTool}}"><option value="Claude Code">Claude Code</option><option value="Codex">Codex</option><option value="Gemini CLI">Gemini CLI</option></select></label>
+<div role="group" aria-label="Warna baju {{a.name}}" style="display: flex; gap: 6px; flex-wrap: wrap">
+<sc-for list="{{a.swatches}}" as="s" hint-placeholder-count="5">
+<button type="button" class="sw {{s.cls}}" style="background: {{s.c}}" aria-label="{{s.label}}" aria-pressed="{{s.pressed}}" onClick="{{s.pick}}"></button>
+</sc-for>
+</div>
+<label class="toggle"><input type="checkbox" checked="{{a.show}}" onChange="{{a.onShow}}"><span class="sr">Tampilkan {{a.name}} di lantai</span></label>
+</div>
+</sc-for>
+</div>
+</div>
+</section>
+
+<div style="display: flex; flex-direction: column; gap: 20px; min-width: 0">
+<section class="panel" aria-labelledby="h-dep" style="padding: 18px">
+<h2 id="h-dep" class="px" style="margin: 0 0 12px; font-size: 14px; color: #f5b83d">Departemen / ruangan</h2>
+<ul style="list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{depts}}" as="d" hint-placeholder-count="2">
+<li style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-radius: 12px; background: #1b2029">
+<span style="display: flex; align-items: center; gap: 10px"><span style="width: 12px; height: 12px; border-radius: 50%; background: {{d.c}}; display: inline-block"></span><strong style="color: #ffffff">{{d.name}}</strong></span>
+<span class="mono" style="font-size: 13px; color: #9aa1b2">{{d.n}} agent</span>
+</li>
+</sc-for>
+</ul>
+<div style="display: flex; gap: 8px">
+<label style="flex-grow: 1"><span class="sr">Nama departemen baru</span><input class="field" type="text" placeholder="mis. Tim Keuangan" value="{{newDept}}" onChange="{{onNewDept}}"></label>
+<button type="button" class="btn" style="background: #252b38; color: #e8eaf0" onClick="{{addDept}}">+ Tambah</button>
+</div>
+</section>
+
+<section class="panel" aria-labelledby="h-src" style="padding: 18px">
+<h2 id="h-src" class="px" style="margin: 0 0 4px; font-size: 14px; color: #f5b83d">Sumber data</h2>
+<p style="margin: 0 0 10px; font-size: 13px; color: #9aa1b2">Dibaca lokal dari komputer ini. Tidak ada data yang dikirim keluar.</p>
+<sc-for list="{{sources}}" as="s" hint-placeholder-count="4">
+<label class="toggle" style="padding: 8px 0; border-bottom: 1px solid #222837">
+<input type="checkbox" checked="{{s.on}}" onChange="{{s.toggle}}">
+<span style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<strong style="color: #ffffff; font-size: 14px">{{s.name}}</strong>
+<span class="mono" style="font-size: 12px; color: #9aa1b2; overflow-wrap: anywhere">{{s.path}}</span>
+</span>
+</label>
+</sc-for>
+<div style="margin-top: 12px; padding: 10px 14px; border-radius: 12px; background: #1b2029; border: 1px dashed #4a5368">
+<div style="font-size: 12px; color: #9aa1b2; margin-bottom: 4px">Endpoint untuk tool lain (CI, skrip):</div>
+<code class="mono" style="font-size: 12px; color: #f5b83d; overflow-wrap: anywhere">POST http://localhost:4747/api/status</code>
+</div>
+</section>
+
+<section class="panel" aria-labelledby="h-sua" style="padding: 18px">
+<h2 id="h-sua" class="px" style="margin: 0 0 8px; font-size: 14px; color: #f5b83d">Suasana kantor</h2>
+<sc-for list="{{prefs}}" as="p" hint-placeholder-count="3">
+<label class="toggle"><input type="checkbox" checked="{{p.on}}" onChange="{{p.toggle}}"><span style="font-size: 14px">{{p.label}}</span></label>
+</sc-for>
+</section>
+</div>
+</div>
+</main>
+
+<div style="position: fixed; left: 0; right: 0; bottom: 0; background: #12151c; border-top: 1px solid #222837; padding: 12px 24px; display: flex; justify-content: flex-end; align-items: center; gap: 16px; flex-wrap: wrap">
+<span role="status" style="font-size: 14px; color: {{statusColor}}">{{statusText}}</span>
+<button type="button" class="btn" style="background: #252b38; color: #e8eaf0" onClick="{{reset}}">Batalkan</button>
+<button type="button" class="btn" style="background: #f5b83d; color: #1b1e2b" onClick="{{save}}">Simpan perubahan</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.init = () => ({
+      agents: [
+        { name: 'Hendra', role: 'CEO', dept: 'Pimpinan', tool: 'Claude Code', shirt: '#4a5578', show: true },
+        { name: 'Rina', role: 'CTO', dept: 'Pimpinan', tool: 'Claude Code', shirt: '#6a5acd', show: true },
+        { name: 'Dimas', role: 'Product Owner', dept: 'Produk', tool: 'Claude Code', shirt: '#e0a030', show: true },
+        { name: 'Ayu', role: 'Scrum Master', dept: 'Produk', tool: 'Claude Code', shirt: '#d9488b', show: true },
+        { name: 'Laras', role: 'Business Analyst', dept: 'Produk', tool: 'Claude Code', shirt: '#8e44ad', show: true },
+        { name: 'Sari', role: 'UI/UX Designer', dept: 'Produk', tool: 'Claude Code', shirt: '#1f9bb5', show: true },
+        { name: 'Bima', role: 'Solution Architect', dept: 'Engineering', tool: 'Claude Code', shirt: '#16a085', show: true },
+        { name: 'Raka', role: 'Backend Developer', dept: 'Engineering', tool: 'Claude Code', shirt: '#3b6fd8', show: true },
+        { name: 'Dewi', role: 'Web Developer', dept: 'Engineering', tool: 'Codex', shirt: '#e67e22', show: true },
+        { name: 'Agus', role: 'Android Developer', dept: 'Engineering', tool: 'Claude Code', shirt: '#3ddc84', show: true },
+        { name: 'Nina', role: 'iOS Developer', dept: 'Engineering', tool: 'Codex', shirt: '#9aa3c4', show: true },
+        { name: 'Yoga', role: 'QA Engineer', dept: 'Kualitas & Keamanan', tool: 'Codex', shirt: '#7fb03a', show: true },
+        { name: 'Fajar', role: 'DevSecOps', dept: 'Kualitas & Keamanan', tool: 'Claude Code', shirt: '#c0392b', show: true },
+        { name: 'Udin', role: 'Office Boy · Pembersih Cache', dept: 'Operasional', tool: 'Claude Code', shirt: '#2fb5c9', show: true },
+        { name: 'Wulan', role: 'Project Manager · PMO Lead', dept: 'PMO', tool: 'Claude Code', shirt: '#b28dff', show: true },
+        { name: 'Andi', role: 'Tech Lead', dept: 'Engineering', tool: 'Claude Code', shirt: '#2b3a55', show: true },
+        { name: 'Dodi', role: 'Data Engineer', dept: 'Data', tool: 'Claude Code', shirt: '#2f8a9a', show: true },
+        { name: 'Mega', role: 'Data Analyst', dept: 'Data', tool: 'Codex', shirt: '#e07a5f', show: true }
+      ],
+      depts: ['Pimpinan', 'PMO', 'Produk', 'Engineering', 'Data', 'Kualitas & Keamanan', 'Operasional'],
+      newDept: '',
+      src: { claude: true, codex: true, gemini: false, gh: false },
+      pref: { social: true, anim: true, sound: false },
+      dirty: false, savedAt: ''
+    });
+    this.state = this.init();
+  }
+  setAgent(i, patch) {
+    const agents = this.state.agents.map((a, j) => (j === i ? { ...a, ...patch } : a));
+    this.setState({ agents, dirty: true });
+  }
+  renderVals() {
+    const S = this.state;
+    const COLORS = [['#3b6fd8', 'biru'], ['#d9488b', 'merah muda'], ['#2f9e8f', 'hijau tosca'], ['#e0a030', 'kuning'], ['#8e44ad', 'ungu'], ['#c0392b', 'merah'], ['#e67e22', 'oranye'], ['#16a085', 'hijau'], ['#6a5acd', 'nila'], ['#4a5578', 'abu kebiruan'], ['#7fb03a', 'hijau muda'], ['#1f9bb5', 'biru laut'], ['#2fb5c9', 'toska'], ['#3ddc84', 'hijau terang'], ['#9aa3c4', 'abu lavender'], ['#b28dff', 'lavender'], ['#2b3a55', 'biru tua'], ['#2f8a9a', 'teal'], ['#e07a5f', 'koral']];
+    const DC = ['#3b6fd8', '#8e44ad', '#16a085', '#e67e22', '#d9488b'];
+    const agents = S.agents.map((a, i) => ({
+      ...a, ini: (a.name || '?')[0], op: a.show ? 1 : 0.45,
+      onName: (e) => this.setAgent(i, { name: e.target.value }),
+      onRole: (e) => this.setAgent(i, { role: e.target.value }),
+      onDept: (e) => this.setAgent(i, { dept: e.target.value }),
+      onTool: (e) => this.setAgent(i, { tool: e.target.value }),
+      onShow: (e) => this.setAgent(i, { show: e.target.checked }),
+      deptOpts: S.depts.map((v) => ({ v })),
+      swatches: COLORS.slice(0, 5).concat(COLORS.slice(5).filter(([c]) => c === a.shirt)).map(([c, n]) => ({ c, label: 'Warna ' + n, cls: a.shirt === c ? 'is-on' : '', pressed: a.shirt === c ? 'true' : 'false', pick: () => this.setAgent(i, { shirt: c }) }))
+    }));
+    const src = [
+      ['claude', 'Claude Code', '~/.claude/projects/'],
+      ['codex', 'Codex CLI', '~/.codex/sessions/'],
+      ['gemini', 'Gemini CLI', '~/.gemini/tmp/'],
+      ['gh', 'GitHub Actions', 'webhook → /api/status']
+    ].map(([k, name, path]) => ({ name, path, on: S.src[k], toggle: () => this.setState({ src: { ...S.src, [k]: !S.src[k] }, dirty: true }) }));
+    const prefs = [
+      ['social', 'Acara sosial saat sepi (rehat kopi, stand-up)'],
+      ['anim', 'Animasi karakter'],
+      ['sound', 'Suara notifikasi saat agent terblokir']
+    ].map(([k, label]) => ({ label, on: S.pref[k], toggle: () => this.setState({ pref: { ...S.pref, [k]: !S.pref[k] }, dirty: true }) }));
+    return {
+      agents, total: S.agents.length, shownCount: S.agents.filter((a) => a.show).length,
+      depts: S.depts.map((name, i) => ({ name, c: DC[i % DC.length], n: S.agents.filter((a) => a.dept === name).length })),
+      newDept: S.newDept,
+      onNewDept: (e) => this.setState({ newDept: e.target.value }),
+      addDept: () => { const v = S.newDept.trim(); if (!v || S.depts.includes(v)) return; this.setState({ depts: [...S.depts, v], newDept: '', dirty: true }); },
+      sources: src, prefs,
+      statusText: S.dirty ? 'Ada perubahan yang belum disimpan' : (S.savedAt ? 'Tersimpan pukul ' + S.savedAt + ' WIB' : 'Semua pengaturan tersimpan'),
+      statusColor: S.dirty ? '#ffb48f' : '#7fe0a8',
+      save: () => { const d = new Date(); this.setState({ dirty: false, savedAt: String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') }); },
+      reset: () => this.setState(this.init())
+    };
+  }
+}
+</script>
+</body>
+</html>

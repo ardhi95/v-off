@@ -1,0 +1,1408 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Ruang Tim 3D</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#0f1218}
+a{color:#f5b83d}a:hover{color:#ffd27a}
+.mono{font-family:'JetBrains Mono',monospace}
+.nav-link{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:999px;color:#b9bfcc;text-decoration:none;font-weight:600;font-size:14px}
+.nav-link:hover{color:#ffffff;background:#1d2230}
+.nav-link.is-active{color:#1a1205;background:#f5b83d}
+.main-grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:20px;align-items:start}
+@media (max-width:1100px){.main-grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:#161a22;border:1px solid #252b38;border-radius:18px}
+.chip{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;border-radius:999px;background:#161a22;color:#d3d7e0;border:1px solid #2a3140;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:500}
+.chip:hover{border-color:#4a5368}
+.chip.is-on{border-color:#f5b83d;color:#ffffff;background:#221e14}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:12px;border:0;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:14px;cursor:pointer}
+.stage{position:relative;height:660px;overflow:hidden;background:#1a1e27;border-radius:18px;touch-action:none;cursor:grab;user-select:none}
+.stage:active{cursor:grabbing}
+.cam{min-width:44px;min-height:40px;padding:0 14px;border-radius:999px;background:rgba(15,18,24,.82);color:#e8eaf0;border:1px solid rgba(255,255,255,.12);cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;font-weight:600}
+.cam:hover{background:rgba(40,46,60,.95)}
+.cam.is-on{background:#f5b83d;color:#1a1205;border-color:#f5b83d}
+.tag{position:absolute;left:0;top:0;visibility:hidden;display:flex;align-items:center;gap:7px;padding:4px 12px 4px 4px;min-height:32px;white-space:nowrap;border-radius:999px;background:rgba(15,18,24,.86);color:#f2f3f6;border:1px solid rgba(255,255,255,.14);cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.tag:hover{background:rgba(36,42,56,.95)}
+.tag:focus-visible{outline:3px solid #f5b83d;outline-offset:2px}
+.tag.is-sel{border-color:#f5b83d;background:rgba(48,38,14,.94)}
+.quip{position:absolute;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%);background:#ffffff;color:#1a1d24;padding:7px 12px;border-radius:14px;font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.35);animation:pop .25s ease-out}
+.quip::after{content:'';position:absolute;left:50%;top:100%;margin-left:-6px;border:6px solid transparent;border-top-color:#ffffff}
+@keyframes pop{0%{transform:translateX(-50%) scale(.6);opacity:0}100%{transform:translateX(-50%) scale(1);opacity:1}}
+.room-tag.dept{background:rgba(15,18,24,.86);color:#ffffff;border:2px solid var(--c, #f5b83d)}
+.room-tag{position:absolute;left:0;top:0;visibility:hidden;pointer-events:none;padding:5px 12px;border-radius:8px;background:rgba(245,184,61,.92);color:#1a1205;font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:800;letter-spacing:.02em;white-space:nowrap}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.blink{animation:blink 1s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){.blink,.quip{animation:none}}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #0f1218; color: #e8eaf0; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 15px">
+<header style="display: flex; align-items: center; gap: 24px; padding: 12px 24px; background: #12151c; border-bottom: 1px solid #222837; flex-wrap: wrap">
+<div style="display: flex; align-items: center; gap: 10px">
+<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="1" y="1" width="28" height="28" rx="9" fill="#f5b83d"></rect><ellipse cx="15" cy="17" rx="8" ry="4.5" fill="#1a1205"></ellipse><circle cx="8" cy="10" r="2.6" fill="#1a1205"></circle><circle cx="15" cy="8.5" r="2.6" fill="#1a1205"></circle><circle cx="22" cy="10" r="2.6" fill="#1a1205"></circle></svg>
+<span style="font-size: 18px; font-weight: 800; color: #ffffff">Kantor Agent</span>
+</div>
+<nav aria-label="Navigasi utama" style="display: flex; gap: 4px; flex-wrap: wrap">
+<a href="Main.dc.html" class="nav-link is-active" aria-current="page">Ruang Tim</a>
+<a href="Laporan.dc.html" class="nav-link">Laporan</a>
+<a href="Pengaturan.dc.html" class="nav-link">Pengaturan Tim</a>
+</nav>
+<div style="margin-left: auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap">
+<span style="display: inline-flex; align-items: center; gap: 8px; color: #9aa1b2; font-size: 13px"><span class="blink" style="width: 9px; height: 9px; border-radius: 50%; background: #35b87a; display: inline-block"></span>Langsung</span>
+<span class="mono" style="color: #b9bfcc; font-size: 13px">Jum, 2 Okt 2026 · 14:32 WIB</span>
+<span style="font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px dashed #4a5368; color: #9aa1b2">Data contoh</span>
+</div>
+</header>
+
+<main style="padding: 20px 24px 32px; max-width: 1440px; margin: 0 auto; box-sizing: border-box">
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px">
+<h1 style="margin: 0 12px 0 0; font-size: 24px; font-weight: 800; color: #ffffff">Lantai 3 · Kantor PMO</h1>
+<sc-for list="{{filters}}" as="f" hint-placeholder-count="4">
+<button type="button" class="chip {{f.cls}}" onClick="{{f.pick}}" aria-pressed="{{f.pressed}}"><span style="width: 9px; height: 9px; border-radius: 50%; background: {{f.dot}}; display: inline-block"></span>{{f.label}}<span class="mono" style="color: #9aa1b2">{{f.count}}</span></button>
+</sc-for>
+</div>
+
+<div class="main-grid">
+<section aria-label="Kantor 3D" style="display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<div class="stage" onPointerDown="{{onDown}}" onPointerMove="{{onMove}}" onPointerUp="{{onUp}}" onPointerLeave="{{onLeave}}" onWheel="{{onWheel}}">
+<canvas id="k3d-canvas" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block" aria-label="Tampilan 3D kantor berisi karakter hewan lucu: meja per tim departemen, ruang CEO dan CTO berdinding kaca, ruang santai, dan office boy yang berkeliling"></canvas>
+<sc-for list="{{roomLabels}}" as="r" hint-placeholder-count="9">
+<span class="room-tag {{r.cls}}" style="--c: {{r.c}}" data-k3d="{{r.key}}">{{r.label}}</span>
+</sc-for>
+<sc-for list="{{people}}" as="c" hint-placeholder-count="18">
+<button type="button" class="tag {{c.selCls}}" data-k3d="{{c.key}}" onClick="{{c.pick}}" onPointerDown="{{stop}}" aria-label="{{c.aria}}" aria-pressed="{{c.pressed}}">
+<span style="width: 24px; height: 24px; border-radius: 50%; background: {{c.shirt}}; color: #ffffff; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800">{{c.ini}}</span>
+<span>{{c.name}}</span>
+<span style="color: #9aa1b2; font-weight: 500">{{c.short}}</span>
+<span class="{{c.dotAnim}}" style="width: 8px; height: 8px; border-radius: 50%; background: {{c.fill}}; display: inline-block"></span>
+<sc-if value="{{c.hasExtra}}" hint-placeholder-val="{{ false }}"><span style="color: #8fe3f0; font-weight: 500; max-width: 260px; overflow: hidden; text-overflow: ellipsis">{{c.extra}}</span></sc-if>
+<sc-if value="{{c.hasQuip}}" hint-placeholder-val="{{ false }}"><span class="quip">{{c.quip}}</span></sc-if>
+</button>
+</sc-for>
+<sc-if value="{{noGL}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; color: #b9bfcc">Browser ini tidak mendukung WebGL, jadi tampilan 3D tidak bisa ditampilkan.</div>
+</sc-if>
+<div style="position: absolute; left: 12px; bottom: 12px; right: 12px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center" onPointerDown="{{stop}}">
+<sc-for list="{{views}}" as="v" hint-placeholder-count="5">
+<button type="button" class="cam {{v.cls}}" onClick="{{v.pick}}">{{v.label}}</button>
+</sc-for>
+<span style="width: 1px; height: 26px; background: rgba(255,255,255,.18); margin: 0 4px"></span>
+<button type="button" class="cam" aria-label="Putar ke kiri" onClick="{{rotL}}">↺</button>
+<button type="button" class="cam" aria-label="Putar ke kanan" onClick="{{rotR}}">↻</button>
+<button type="button" class="cam" aria-label="Perbesar" onClick="{{zoomIn}}">+</button>
+<button type="button" class="cam" aria-label="Perkecil" onClick="{{zoomOut}}">−</button>
+<button type="button" class="cam {{autoCls}}" aria-pressed="{{autoPressed}}" onClick="{{toggleAuto}}">Putar otomatis</button>
+</div>
+<span style="position: absolute; right: 12px; top: 12px; font-size: 12px; color: #c9ced8; background: rgba(15,18,24,.75); padding: 6px 12px; border-radius: 999px; pointer-events: none">Seret untuk memutar · scroll untuk zoom · klik orang untuk detail</span>
+</div>
+
+<div class="panel" style="padding: 18px 20px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px">
+<h2 style="margin: 0; font-size: 16px; font-weight: 800; color: #ffffff">Aktivitas terbaru</h2>
+<span style="font-size: 13px; color: #9aa1b2">18 agent · 5 meja tim, 2 ruangan pribadi · yang idle boleh main di ruang santai</span>
+</div>
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column">
+<sc-for list="{{feed}}" as="e" hint-placeholder-count="6">
+<li style="display: grid; grid-template-columns: 52px 10px minmax(0, 1fr); gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid #222837">
+<span class="mono" style="font-size: 13px; color: #9aa1b2">{{e.t}}</span>
+<span style="width: 9px; height: 9px; border-radius: 50%; background: {{e.c}}; display: inline-block"></span>
+<span style="font-size: 14px"><strong style="color: #ffffff">{{e.who}}</strong> <span style="color: #b9bfcc">{{e.what}}</span></span>
+</li>
+</sc-for>
+</ul>
+</div>
+</section>
+
+<aside aria-label="Detail agent" class="panel" style="display: flex; flex-direction: column; overflow: hidden">
+<div style="display: flex; gap: 16px; align-items: center; padding: 20px; background: #1b2029; border-bottom: 1px solid #252b38">
+<span style="width: 64px; height: 64px; flex-shrink: 0; border-radius: 50%; background: {{d.shirt}}; color: #ffffff; display: inline-flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; box-shadow: 0 0 0 3px #161a22, 0 0 0 5px {{d.fill}}">{{d.ini}}</span>
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h2 style="margin: 0; font-size: 22px; font-weight: 800; color: #ffffff">{{d.name}}</h2>
+<span style="font-size: 14px; color: #b9bfcc">{{d.role}} · {{d.dept}}</span>
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<span style="font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: {{d.pillBg}}; color: {{d.pillFg}}">{{d.statusLabel}}</span>
+<span class="mono" style="font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid #343b4c; color: #d3d7e0">{{d.tool}}</span>
+<span style="font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: #252b38; color: #e8eaf0">{{d.species}}</span>
+</div>
+</div>
+</div>
+
+<div style="padding: 20px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #9aa1b2"><span style="width: 8px; height: 8px; border-radius: 50%; background: #f5b83d; display: inline-block"></span>Lokasi: <strong style="color: #e8eaf0">{{d.place}}</strong></div>
+<sc-if value="{{d.isBlocked}}" hint-placeholder-val="{{ false }}">
+<div role="alert" style="background: #2a1712; border: 1px solid #a84a2c; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; gap: 10px; align-items: center"><span class="blink" style="width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #ef6a3c; color: #ffffff; font-weight: 800">!</span><strong style="color: #ffd9c7">{{d.blockReason}}</strong></div>
+<span style="font-size: 14px; color: #f0c9b8; line-height: 1.5">{{d.blockHint}}</span>
+<button type="button" class="btn" style="background: #f5b83d; color: #1a1205; align-self: flex-start" onClick="{{d.resolve}}">Tandai sudah ditangani</button>
+</div>
+</sc-if>
+
+<div>
+<h3 style="margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #9aa1b2">Tugas saat ini</h3>
+<p style="margin: 0 0 4px; font-size: 16px; font-weight: 700; color: #ffffff; line-height: 1.4">{{d.task}}</p>
+<span class="mono" style="font-size: 13px; color: #9aa1b2">repo: {{d.repo}}</span>
+<div style="margin-top: 12px; display: flex; align-items: center; gap: 10px">
+<div style="flex-grow: 1; height: 8px; border-radius: 999px; background: #252b38; overflow: hidden"><div style="height: 100%; width: {{d.prog}}%; border-radius: 999px; background: #f5b83d"></div></div>
+<span class="mono" style="font-size: 13px; color: #e8eaf0">{{d.prog}}%</span>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+<div style="background: #1b2029; padding: 12px; border-radius: 12px"><div style="font-size: 12px; color: #9aa1b2">Token hari ini</div><div class="mono" style="font-size: 16px; color: #ffffff; margin-top: 4px">{{d.tok}}</div></div>
+<div style="background: #1b2029; padding: 12px; border-radius: 12px"><div style="font-size: 12px; color: #9aa1b2">Biaya</div><div class="mono" style="font-size: 16px; color: #ffffff; margin-top: 4px">{{d.cost}}</div></div>
+<div style="background: #1b2029; padding: 12px; border-radius: 12px"><div style="font-size: 12px; color: #9aa1b2">Durasi sesi</div><div class="mono" style="font-size: 16px; color: #ffffff; margin-top: 4px">{{d.dur}}</div></div>
+</div>
+
+<div>
+<h3 style="margin: 0 0 6px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #9aa1b2">Log aktivitas</h3>
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column">
+<sc-for list="{{d.log}}" as="l" hint-placeholder-count="4">
+<li style="display: grid; grid-template-columns: 46px 78px minmax(0, 1fr); gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid #222837; font-size: 13px">
+<span class="mono" style="color: #9aa1b2">{{l.t}}</span>
+<span style="font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; text-align: center; background: {{l.bg}}; color: {{l.fg}}">{{l.k}}</span>
+<span class="mono" style="color: #e8eaf0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{l.d}}</span>
+</li>
+</sc-for>
+</ol>
+</div>
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap">
+<button type="button" class="btn" style="background: #3d6fd6; color: #ffffff" onClick="{{openSession}}">Lihat sesi lengkap</button>
+<button type="button" class="btn" style="background: #252b38; color: #e8eaf0" onClick="{{pingAgent}}">Kirim pesan</button>
+<button type="button" class="btn" style="background: transparent; color: #f5b83d; border: 1px solid #4a3d1c" onClick="{{focusSel}}">Arahkan kamera</button>
+<sc-if value="{{d.canIdle}}" hint-placeholder-val="{{ true }}">
+<button type="button" class="btn" style="background: rgba(255,122,156,.14); color: #ffb3c6; border: 1px solid rgba(255,122,156,.4)" onClick="{{d.toggleIdle}}">{{d.idleLabel}}</button>
+</sc-if>
+</div>
+</div>
+</aside>
+</div>
+
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #f5b83d; color: #1a1205; padding: 12px 20px; border-radius: 12px; font-size: 14px; font-weight: 700; box-shadow: 0 10px 30px rgba(0,0,0,.4); z-index: 10">{{toast}}</div>
+</sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1200}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 'udin', filter: 'semua', resolved: {}, toast: '', auto: false, view: 'kantor', noGL: false, quip: '', obAction: 'Berkeliling mencari cache…', obFreed: 5.2, idleMap: {} };
+    this.loop = this.loop.bind(this);
+    this.VIEWS = {
+      kantor: { label: 'Seluruh kantor', tx: 0, ty: 60, tz: 250, yaw: -0.38, pitch: 0.7, dist: 3500 },
+      tim: { label: 'Meja tim', tx: 0, ty: 70, tz: 60, yaw: -0.3, pitch: 0.62, dist: 2000 },
+      soc: { label: 'Pusat keamanan', tx: 0, ty: 110, tz: 330, yaw: -0.25, pitch: 0.42, dist: 900 },
+      ceo: { label: 'Ruang CEO', tx: -775, ty: 80, tz: -650, yaw: 0.35, pitch: 0.5, dist: 950 },
+      cto: { label: 'Ruang CTO', tx: 775, ty: 80, tz: -650, yaw: -0.35, pitch: 0.5, dist: 950 },
+      santai: { label: 'Ruang santai', tx: 0, ty: 60, tz: 1020, yaw: -0.3, pitch: 0.62, dist: 1700 },
+      atas: { label: 'Tampak atas', tx: 0, ty: 0, tz: 250, yaw: 0, pitch: 1.48, dist: 3900 }
+    };
+    const v = this.VIEWS.kantor;
+    this.cam = { tx: v.tx, ty: v.ty, tz: v.tz, yaw: v.yaw + 0.5, pitch: v.pitch + 0.15, dist: v.dist * 1.25 };
+    this.goal = { tx: v.tx, ty: v.ty, tz: v.tz, yaw: v.yaw, pitch: v.pitch, dist: v.dist };
+    this.dirty = true; this.needPeople = true; this.needRings = true; this.anchors = {};
+    // department pods: [centerX, centerZ, tableRadius]
+    this.PODS = {
+      produk: { x: -520, z: -120, w: 240, d: 150, divider: true, label: 'Tim Produk', c: '#f5b83d', rug: '#6a5a3c' },
+      eng: { x: 480, z: -120, w: 360, d: 150, divider: true, label: 'Tim Engineering', c: '#5b8def', rug: '#3c4f73' },
+      qa: { x: 0, z: 360, w: 240, d: 120, divider: false, label: 'Tim Kualitas & Keamanan · SOC', c: '#ef6a3c', rug: '#5a3a3e' },
+      data: { x: 560, z: 380, w: 240, d: 150, divider: false, label: 'Tim Data', c: '#2fb5c9', rug: '#2f5058' },
+      pmo: { x: -560, z: 380, w: 200, d: 100, divider: false, label: 'PMO · Project Manager', c: '#b28dff', rug: '#4a3f63' }
+    };
+    const pod = (k, side, ox) => {
+      const p = this.PODS[k];
+      if (side === 'e') return [p.x + p.w / 2 + 30, p.z + ox, -Math.PI / 2];
+      return side === 'b' ? [p.x + ox, p.z - p.d / 2 - 30, 0] : [p.x + ox, p.z + p.d / 2 + 30, Math.PI];
+    };
+    this.AG = [
+      { id: 'hendra', name: 'Hendra', role: 'CEO', short: 'CEO', dept: 'Pimpinan', place: 'Ruang CEO', tool: 'Claude Code', st: 'kerja', seat: [-775, -772, 0], desk: 1, shirt: '#2c3550', pants: '#262c3f', hair: '#55504a', skin: '#c68c66', shoe: '#3a2a20', tie: true,
+        quip: 'Angka Q3 bagus sekali!', task: 'Meninjau laporan portofolio Q3 untuk rapat direksi', repo: '—', prog: 40, tok: '26 rb', cost: 'US$ 0,40', dur: '35m',
+        log: [['14:28', 'Baca', 'laporan-portofolio-q3.pdf'], ['14:15', 'Edit', 'catatan-direksi.md'], ['13:30', 'Info', 'Menyetujui anggaran sprint 19']] },
+      { id: 'rina', name: 'Rina', role: 'CTO', short: 'CTO', dept: 'Pimpinan', place: 'Ruang CTO', tool: 'Claude Code', st: 'kerja', seat: [775, -772, 0], desk: 2, shirt: '#5d50a8', pants: '#2b2f3a', hair: '#1a1410', skin: '#e8b996', shoe: '#2b2e35', longHair: true, glasses: true,
+        quip: 'Arsitekturnya aman, lanjut!', task: 'Meninjau kesiapan arsitektur untuk rilis Q4', repo: 'pmo-portal', prog: 58, tok: '104 rb', cost: 'US$ 1,52', dur: '52m',
+        log: [['14:30', 'Baca', 'docs/adr/014-sso.md'], ['14:24', 'Edit', 'docs/rencana-rilis-q4.md'], ['14:12', 'Cari', '"deprecated" di services/']] },
+      { id: 'ayu', name: 'Ayu', role: 'Scrum Master', short: 'Scrum', dept: 'Produk', place: 'Meja Tim Produk', tool: 'Claude Code', st: 'bicara', seat: pod('produk', 'b', -60), shirt: '#e2668f', pants: '#2f3542', hair: '#1a1410', skin: '#c68c66', shoe: '#f5b83d', bun: true,
+        quip: 'Ayo stand-up dulu, 5 menit!', task: 'Memimpin stand-up Tim Produk', repo: 'pmo-roadmap', prog: 70, tok: '58 rb', cost: 'US$ 0,85', dur: '22m',
+        log: [['14:20', 'Rapat', 'Membuka stand-up Tim Produk'], ['14:12', 'Edit', 'sprint-18/ringkasan.md'], ['14:02', 'Baca', 'jira-export-sprint18.csv']] },
+      { id: 'sari', name: 'Sari', role: 'UI/UX Designer', short: 'UI/UX', dept: 'Produk', place: 'Meja Tim Produk', tool: 'Claude Code', st: 'kerja', seat: pod('produk', 'b', 60), shirt: '#3fb0c9', pants: '#3a3f4f', hair: '#6b3a1e', skin: '#f1c9a5', shoe: '#ffffff', longHair: true, beret: true,
+        quip: 'Tombolnya kurang bulat…', task: 'Membuat prototipe alur persetujuan timesheet', repo: 'pmo-design-system', prog: 68, tok: '94 rb', cost: 'US$ 1,36', dur: '58m',
+        log: [['14:30', 'Edit', 'prototipe/persetujuan.html'], ['14:24', 'Edit', 'tokens/warna.json'], ['14:18', 'Baca', 'riset/wawancara-pm.md'], ['14:05', 'Info', 'Tes kegunaan: 5 responden']] },
+      { id: 'laras', name: 'Laras', role: 'Business Analyst', short: 'Analis', dept: 'Produk', place: 'Meja Tim Produk', tool: 'Claude Code', st: 'idle', seat: pod('produk', 'f', -60), idleTask: 'User story sudah selesai, menunggu review PO — sambil main dulu', shirt: '#9a63c4', pants: '#2f3542', hair: '#5a3a22', skin: '#f1c9a5', shoe: '#e2668f', pony: true,
+        quip: 'User story-nya beres!', task: 'Menulis user story modul anggaran proyek', repo: 'pmo-roadmap', prog: 55, tok: '112 rb', cost: 'US$ 1,61', dur: '47m',
+        log: [['14:27', 'Edit', 'stories/anggaran.md'], ['14:22', 'Baca', 'notulen-stakeholder.docx'], ['14:16', 'Cari', '"approval" di backlog']] },
+      { id: 'dimas', name: 'Dimas', role: 'Product Owner', short: 'PO', dept: 'Produk', place: 'Meja Tim Produk', tool: 'Claude Code', st: 'simak', seat: pod('produk', 'f', 60), shirt: '#f0b33f', pants: '#3a4a68', hair: '#3a2416', skin: '#c68c66', shoe: '#2b2e35', beard: true,
+        quip: 'Yang paling penting dulu ya.', task: 'Menyimak stand-up, lalu memprioritaskan backlog Sprint 19', repo: 'pmo-roadmap', prog: 30, tok: '70 rb', cost: 'US$ 0,98', dur: '22m',
+        log: [['14:20', 'Rapat', 'Bergabung stand-up'], ['14:05', 'Edit', 'backlog/prioritas.md'], ['13:50', 'Baca', 'feedback-pengguna.csv']] },
+      { id: 'raka', name: 'Raka', role: 'Backend Developer', short: 'Backend', dept: 'Engineering', place: 'Meja Tim Engineering', tool: 'Claude Code', st: 'kerja', seat: pod('eng', 'b', 0), shirt: '#4a78d6', pants: '#3a4a68', hair: '#2a1d14', skin: '#d9a27b', shoe: '#ef6a3c', spiky: true,
+        quip: 'Satu bug lagi, janji!', task: 'Membangun API timesheet v2', repo: 'pmo-portal', prog: 64, tok: '196 rb', cost: 'US$ 3,02', dur: '1j 12m',
+        log: [['14:32', 'Edit', 'src/api/timesheet.ts'], ['14:30', 'Jalankan', 'npm test -- timesheet'], ['14:27', 'Baca', 'src/db/schema.sql'], ['14:21', 'Cari', '"approveEntry("']] },
+      { id: 'bima', name: 'Bima', role: 'Solution Architect', short: 'Arsitek', dept: 'Engineering', place: 'Meja Tim Engineering', tool: 'Claude Code', st: 'kerja', seat: pod('eng', 'b', -120), shirt: '#2f9f8c', pants: '#2f3542', hair: '#3b2a1e', skin: '#a86d4a', shoe: '#2b2e35', phones: '#f5b83d',
+        quip: 'Diagram SSO hampir jadi!', task: 'Merancang integrasi SSO dengan sistem HR', repo: 'pmo-portal', prog: 46, tok: '121 rb', cost: 'US$ 1,74', dur: '1j 05m',
+        log: [['14:31', 'Edit', 'docs/arsitektur/sso.drawio'], ['14:26', 'Baca', 'hr-api/openapi.yaml'], ['14:15', 'Edit', 'docs/adr/014-sso.md']] },
+      { id: 'dewi', name: 'Dewi', role: 'Web Developer', short: 'Web', dept: 'Engineering', place: 'Meja Tim Engineering', tool: 'Codex', st: 'kerja', seat: pod('eng', 'b', 120), shirt: '#ee8a3a', pants: '#33384a', hair: '#4a2c1a', skin: '#e8b996', shoe: '#ffffff', longHair: true, phones: '#e2668f',
+        quip: 'Dasbornya cantik kan?', task: 'Membangun halaman dasbor proyek', repo: 'pmo-portal', prog: 82, tok: '171 rb', cost: 'US$ 2,48', dur: '1j 34m',
+        log: [['14:28', 'Edit', 'src/pages/Dashboard.tsx'], ['14:25', 'Edit', 'src/components/Gantt.tsx'], ['14:19', 'Jalankan', 'npm run lint']] },
+      { id: 'agus', name: 'Agus', role: 'Android Developer', short: 'Android', dept: 'Engineering', place: 'Meja Tim Engineering', tool: 'Claude Code', st: 'idle', seat: pod('eng', 'f', -60), idleTask: 'Menunggu build Gradle selesai (± 12 menit) — sambil main dulu', shirt: '#3ddc84', pants: '#2f3542', hair: '#2a1d14', skin: '#c68c66', shoe: '#2b2e35', glasses: true,
+        quip: 'Gradle-nya masih build…', task: 'Membuat notifikasi push persetujuan timesheet di Android', repo: 'pmo-android', prog: 52, tok: '138 rb', cost: 'US$ 2,05', dur: '1j 10m',
+        log: [['14:30', 'Edit', 'app/src/main/java/.../ApprovalNotifier.kt'], ['14:26', 'Jalankan', './gradlew assembleDebug'], ['14:18', 'Baca', 'app/build.gradle.kts']] },
+      { id: 'nina', name: 'Nina', role: 'iOS Developer', short: 'iOS', dept: 'Engineering', place: 'Meja Tim Engineering', tool: 'Codex', st: 'kerja', seat: pod('eng', 'f', 60), shirt: '#e9e9ee', pants: '#2b2f3a', hair: '#1a1410', skin: '#f1c9a5', shoe: '#5b8def', longHair: true,
+        quip: 'Mode gelapnya sudah rapi!', task: 'Menyesuaikan dasbor proyek untuk iPhone dan iPad', repo: 'pmo-ios', prog: 61, tok: '127 rb', cost: 'US$ 1,88', dur: '58m',
+        log: [['14:29', 'Edit', 'Sources/Dashboard/DashboardView.swift'], ['14:24', 'Jalankan', 'xcodebuild test -scheme PMO'], ['14:15', 'Baca', 'Package.swift']] },
+      { id: 'yoga', name: 'Yoga', role: 'QA Engineer', short: 'QA', dept: 'Kualitas & Keamanan', place: 'Pusat Keamanan (SOC)', tool: 'Codex', st: 'macet', seat: pod('qa', 'f', 60), desk: 2, shirt: '#7fb547', pants: '#3a4a68', hair: '#2a1d14', skin: '#d9a27b', shoe: '#5b8def', cap: '#ef6a3c',
+        quip: 'Lho, kok tesnya merah?', block: 'Tes gagal: 3 dari 48', hint: 'Uji regresi timesheet gagal di tiga kasus tanggal. Agent menunggu keputusan: perbaiki kode atau ubah ekspektasi tes?',
+        task: 'Uji regresi modul timesheet', repo: 'pmo-portal', prog: 44, tok: '128 rb', cost: 'US$ 1,81', dur: '1j 03m',
+        log: [['14:31', 'Galat', 'timesheet.spec.ts — 3 gagal'], ['14:29', 'Jalankan', 'playwright test timesheet'], ['14:10', 'Edit', 'e2e/timesheet.spec.ts']] },
+      { id: 'fajar', name: 'Fajar', role: 'DevSecOps', short: 'DevSecOps', dept: 'Kualitas & Keamanan', place: 'Pusat Keamanan (SOC)', tool: 'Claude Code', st: 'macet', seat: pod('qa', 'f', -60), desk: 2, shirt: '#c4483e', pants: '#2b2f3a', hair: '#222222', skin: '#a86d4a', shoe: '#2b2e35', hood: true,
+        quip: 'Ada CVE! Tahan dulu rilisnya.', block: 'Kerentanan kritis ditemukan', hint: 'Pemindaian menemukan 1 CVE kritis di library PDF. Agent menunggu persetujuan untuk upgrade ke versi aman.',
+        task: 'Pemindaian keamanan dependensi sebelum rilis', repo: 'infra-ci', prog: 75, tok: '115 rb', cost: 'US$ 1,66', dur: '48m',
+        log: [['14:31', 'Galat', 'CVE kritis: pdf-lib < 1.17.2'], ['14:29', 'Jalankan', 'npm audit --production'], ['14:20', 'Jalankan', 'trivy image pmo-portal']] },
+      { id: 'wulan', name: 'Wulan', role: 'Project Manager · PMO Lead', short: 'PM', dept: 'PMO', place: 'Meja PMO', tool: 'Claude Code', st: 'kerja', seat: pod('pmo', 'b', 0), shirt: '#b28dff', pants: '#2f3542', shoe: '#2b2e35',
+        quip: 'Timeline masih aman, tapi…', task: 'Memperbarui timeline & register risiko portofolio Q4', repo: 'pmo-portofolio', prog: 62, tok: '88 rb', cost: 'US$ 1,25', dur: '1j 02m',
+        log: [['14:31', 'Edit', 'gantt-q4.xlsx'], ['14:24', 'Baca', 'status-tim-engineering.md'], ['14:15', 'Edit', 'register-risiko.md']] },
+      { id: 'andi', name: 'Andi', role: 'Tech Lead', short: 'Tech Lead', dept: 'Engineering', place: 'Kepala meja Tim Engineering', tool: 'Claude Code', st: 'kerja', seat: pod('eng', 'e', 0), shirt: '#2b3a55', pants: '#2f3542', shoe: '#2b2e35', glasses: true,
+        quip: 'PR-nya sudah saya review.', task: 'Review PR & membagi tugas teknis Sprint 19', repo: 'pmo-portal', prog: 57, tok: '149 rb', cost: 'US$ 2,21', dur: '1j 18m',
+        log: [['14:30', 'Baca', 'PR #231 — API timesheet'], ['14:22', 'Edit', 'docs/teknis/pembagian-tugas.md'], ['14:10', 'Jalankan', 'gh pr checks 231']] },
+      { id: 'dodi', name: 'Dodi', role: 'Data Engineer', short: 'Data Eng', dept: 'Data', place: 'Meja Tim Data', tool: 'Claude Code', st: 'kerja', seat: pod('data', 'b', -60), desk: 2, shirt: '#2f8a9a', pants: '#3a4a68', shoe: '#f5b83d',
+        quip: 'Pipeline-nya hijau semua!', task: 'Membangun pipeline data timesheet ke gudang data', repo: 'pmo-data', prog: 71, tok: '133 rb', cost: 'US$ 1,96', dur: '1j 07m',
+        log: [['14:31', 'Edit', 'dags/timesheet_etl.py'], ['14:26', 'Jalankan', 'dbt run --select timesheet'], ['14:12', 'Baca', 'warehouse/schema.yml']] },
+      { id: 'mega', name: 'Mega', role: 'Data Analyst', short: 'Analis Data', dept: 'Data', place: 'Meja Tim Data', tool: 'Codex', st: 'kerja', seat: pod('data', 'b', 60), desk: 2, shirt: '#e07a5f', pants: '#2f3542', shoe: '#ffffff',
+        quip: 'Utilisasi naik 12%!', task: 'Menyusun dasbor utilisasi tim untuk direksi', repo: 'pmo-data', prog: 48, tok: '102 rb', cost: 'US$ 1,47', dur: '54m',
+        log: [['14:29', 'Edit', 'dashboards/utilisasi.sql'], ['14:23', 'Jalankan', 'python analisis_utilisasi.py'], ['14:11', 'Baca', 'export-timesheet-sept.csv']] },
+      { id: 'udin', name: 'Udin', role: 'Office Boy · Pembersih Cache', short: 'OB', dept: 'Operasional', place: 'Berkeliling kantor', tool: 'Claude Code', st: 'bersih', walker: true, seat: [-900, 600, 0], shirt: '#2fb5c9', pants: '#2b2f3a', hair: '#1a1410', skin: '#b97a55', shoe: '#f5b83d', cap: '#1f6f8b',
+        quip: 'Permisi, bersih-bersih dulu!', task: 'Membersihkan cache & file sementara di seluruh kantor', repo: '—', prog: 0, tok: '12 rb', cost: 'US$ 0,15', dur: 'shift 08–17',
+        log: [['14:31', 'Hapus', 'node_modules/.cache · 1,2 GB'], ['14:22', 'Hapus', '~/.npm/_cacache · 0,9 GB'], ['14:10', 'Hapus', '/tmp sesi lama · 0,6 GB'], ['13:58', 'Hapus', 'log server > 7 hari · 2,1 GB']] }
+    ];
+    const ZOO = {
+      hendra: ['lion', '#e3a64a', '#a8582a', '#f4dcae', 'Singa'], rina: ['owl', '#9a7652', '#5e4630', '#efe0c4', 'Burung hantu'],
+      ayu: ['rabbit', '#f6f2ee', '#f4a3b4', '#ffffff', 'Kelinci'], sari: ['cat', '#f0a050', '#c8742a', '#fff4e6', 'Kucing'],
+      laras: ['fox', '#e8783a', '#3a2a22', '#fbf3ea', 'Rubah'], dimas: ['bear', '#8a5a3a', '#6a4028', '#d9b48a', 'Beruang'],
+      raka: ['panda', '#f4f4f2', '#26262b', '#ffffff', 'Panda'], bima: ['koala', '#a3a8b0', '#f0e6ea', '#a3a8b0', 'Koala'],
+      dewi: ['hamster', '#e9b97a', '#f4a3b4', '#fff6ea', 'Hamster'], agus: ['frog', '#6cc04a', '#4f9a36', '#a8e08a', 'Katak'],
+      nina: ['penguin', '#2a2d36', '#ffffff', '#ffffff', 'Pinguin'], yoga: ['dog', '#d9b07a', '#a8784a', '#f6ead8', 'Anjing'],
+      fajar: ['raccoon', '#8d8d95', '#2a2a30', '#f2f0ee', 'Rakun'], udin: ['monkey', '#7a4e2e', '#5e3a22', '#f0c8a0', 'Monyet'],
+      wulan: ['elephant', '#a3abb8', '#f2b8c4', '#a3abb8', 'Gajah'], andi: ['wolf', '#8e939c', '#4a4d55', '#eceae6', 'Serigala'],
+      dodi: ['beaver', '#9a6a42', '#6e4a2c', '#d8b48c', 'Berang-berang'], mega: ['sheep', '#f2d9c4', '#fbf6ea', '#f6e4d6', 'Domba']
+    };
+    this.AG.forEach((a) => {
+      const z = ZOO[a.id]; if (!z) return;
+      a.animal = z[0]; a.skin = z[1]; a.acc = z[2]; a.muz = z[3]; a.species = z[4];
+      if (a.id === 'agus') a.glasses = false;
+    });
+    this.AG.forEach((a) => { if (a.walker) return; this.anchors['p:' + a.id] = this.L(a, 0, 162, 0); this.anchors['h:' + a.id] = this.L(a, 0, 95, 4); });
+    this.anchors['r:ceo'] = [-775, 268, -450];
+    this.anchors['r:cto'] = [775, 268, -450];
+    this.anchors['r:tv'] = [0, 252, -832];
+    this.anchors['r:santai'] = [0, 240, 1000];
+    Object.keys(this.PODS).forEach((k) => { const p = this.PODS[k]; this.anchors['d:' + k] = k === 'qa' ? [p.x, 262, p.z - 110] : [p.x, 205, p.z]; });
+    const D = (x, z) => ({ x, z });
+    const S = (x, z, label, gb) => ({ x, z, stop: [label, gb] });
+    this.PATH = [D(-900, 600), D(-900, -380), D(-575, -380), D(-575, -480), S(-600, -680, 'cache browser di ruang CEO', 0.4), D(-575, -480), D(-575, -380),
+      S(420, -340, 'node_modules/.cache milik Raka', 1.2), D(575, -380), D(575, -480), D(930, -480), S(930, -700, 'log lama server di ruang CTO', 2.1), D(930, -480), D(575, -480), D(575, -380),
+      D(900, -380), D(900, 600), S(700, 560, 'cache dbt & Spark di Tim Data', 1.5), D(450, 620), S(450, 1000, 'file /tmp sesi lama di ruang santai', 0.6), S(-450, 1050, 'cache npm di dekat sofa', 0.9), S(-200, 520, 'cache Trivy di pusat keamanan', 0.8)];
+  }
+
+  L(a, lx, ly, lz) {
+    const y = a.seat[2], f = [Math.sin(y), 0, Math.cos(y)], r = [Math.cos(y), 0, -Math.sin(y)];
+    return [a.seat[0] + r[0] * lx + f[0] * lz, ly, a.seat[1] + r[2] * lx + f[2] * lz];
+  }
+
+  componentDidMount() {
+    this._raf = requestAnimationFrame(this.loop);
+    this._qi = setInterval(() => {
+      const pool = this.AG.filter((a) => this.match(this.eff(a)) && a.id !== this.state.quip);
+      if (!pool.length) return;
+      const a = pool[Math.floor(Math.random() * pool.length)];
+      this.setState({ quip: a.id });
+      clearTimeout(this._qt); this._qt = setTimeout(() => this.setState({ quip: '' }), 2800);
+    }, 3600);
+  }
+  componentWillUnmount() { cancelAnimationFrame(this._raf); clearTimeout(this._t); clearInterval(this._qi); clearTimeout(this._qt); }
+  componentDidUpdate(pp, ps) {
+    const s = this.state;
+    if (ps.filter !== s.filter || ps.resolved !== s.resolved || ps.idleMap !== s.idleMap) this.needPeople = true;
+    if (ps.sel !== s.sel || this.needPeople) this.needRings = true;
+    this.dirty = true;
+  }
+  flash(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: '' }), 2600);
+  }
+  eff(a) {
+    const im = this.state.idleMap[a.id];
+    const idle = im === undefined ? a.st === 'idle' : im;
+    if (idle && !a.walker) return 'idle';
+    if (a.st === 'idle') return a.workSt || 'kerja';
+    return a.st === 'macet' && this.state.resolved[a.id] ? 'kerja' : a.st;
+  }
+  match(s) { const f = this.state.filter; return f === 'semua' || (f === 'lain' ? (s === 'bicara' || s === 'simak') : f === 'kerja' ? (s === 'kerja' || s === 'bersih') : s === f); }
+
+  // ---------- matrices ----------
+  T(x, y, z) { return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, y, z, 1]; }
+  Ry(a) { const c = Math.cos(a), s = Math.sin(a); return [c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, 0, 0, 0, 1]; }
+  Rx(a) { const c = Math.cos(a), s = Math.sin(a); return [1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, 0, 0, 0, 1]; }
+  m4(a, b) {
+    const o = new Array(16);
+    for (let col = 0; col < 4; col++) for (let row = 0; row < 4; row++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + row] * b[col * 4 + k]; o[col * 4 + row] = s; }
+    return o;
+  }
+
+  // ---------- office boy ----------
+  updateOB(dt) {
+    const P = this.PATH;
+    if (!this.ob) {
+      this.ob = { i: 1, x: P[0].x, z: P[0].z, yaw: Math.PI, phase: 0, wait: 0, mopT: 0 };
+      this.reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      if (this.reduce) { const st = P[7]; this.ob.x = st.x; this.ob.z = st.z; this.ob.wait = 1; this.setState({ obAction: 'Membersihkan ' + st.stop[0] }); }
+    } else if (this.reduce) { return false; }
+    const o = this.ob;
+    let walking = false;
+    if (!this.reduce) {
+      if (o.wait > 0) {
+        o.wait -= dt; o.mopT += dt;
+        if (o.wait <= 0) { const st = P[o.i].stop; this.setState({ obAction: 'Berkeliling mencari cache…', obFreed: Math.round((this.state.obFreed + st[1]) * 10) / 10 }); o.i = (o.i + 1) % P.length; }
+      } else {
+        const t = P[o.i], dx = t.x - o.x, dz = t.z - o.z, d = Math.hypot(dx, dz);
+        if (d < 1.5) {
+          if (t.stop) { o.wait = 4.5; o.mopT = 0; this.setState({ obAction: 'Membersihkan ' + t.stop[0] }); } else o.i = (o.i + 1) % P.length;
+        } else {
+          const step = Math.min(78 * dt, d);
+          o.x += dx / d * step; o.z += dz / d * step; o.phase += step * 0.085; walking = true;
+          let dy = Math.atan2(dx, dz) - o.yaw;
+          while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
+          o.yaw += dy * Math.min(1, dt * 8);
+        }
+      }
+    }
+    const sw = walking ? Math.sin(o.phase) : 0, bob = walking ? Math.abs(Math.cos(o.phase)) * 1.8 : 0;
+    const base = this.m4(this.T(o.x, bob, o.z), this.Ry(o.yaw));
+    const piv = (px, py, pz, R) => this.m4(base, this.m4(this.T(px, py, pz), this.m4(R, this.T(-px, -py, -pz))));
+    const mop = o.wait > 0 ? Math.sin(o.mopT * 6) * 0.5 : 0;
+    this.obM = {
+      obBody: base, obLegL: piv(-8, 60, 0, this.Rx(sw * 0.5)), obLegR: piv(8, 60, 0, this.Rx(-sw * 0.5)),
+      obArmL: piv(-17, 96, -1, this.Rx(-sw * 0.6)), obArmR: piv(17, 96, -1, this.Rx(mop * 0.2)),
+      obMop: piv(18, 74, 22, this.Ry(mop)), T: this.T(o.x, 0, o.z)
+    };
+    this.anchors['p:udin'] = [o.x, 172, o.z];
+    this.anchors['h:udin'] = [o.x, 100, o.z];
+    return true;
+  }
+
+  // ---------- WebGL ----------
+  initGL() {
+    if (this._glFail) return false;
+    const cv = document.getElementById('k3d-canvas');
+    if (!cv) return false;
+    const gl = cv.getContext('webgl', { antialias: true, alpha: false }) || cv.getContext('experimental-webgl');
+    if (!gl) { this._glFail = true; this.setState({ noGL: true }); return false; }
+    const vs = ['attribute vec3 aP;', 'attribute vec3 aN;', 'attribute vec4 aC;', 'uniform mat4 uVP;', 'uniform mat4 uM;', 'varying vec3 vN;', 'varying vec4 vC;', 'varying float vY;',
+      'void main(){vec4 wp=uM*vec4(aP,1.0);vN=(uM*vec4(aN,0.0)).xyz;vC=aC;vY=wp.y;gl_Position=uVP*wp;}'].join('\n');
+    const fs = ['precision mediump float;', 'varying vec3 vN;', 'varying vec4 vC;', 'varying float vY;', 'void main(){',
+      'if(vC.a>1.5){gl_FragColor=vec4(vC.rgb,1.0);return;}',
+      'vec3 N=normalize(vN);',
+      'vec3 L1=normalize(vec3(0.45,0.85,0.35));', 'vec3 L2=normalize(vec3(-0.6,0.45,-0.5));',
+      'float d1=max(dot(N,L1),0.0);', 'float d2=max(dot(N,L2),0.0);', 'float hemi=0.5+0.5*N.y;',
+      'float ao=mix(0.82,1.0,clamp(vY/60.0,0.0,1.0));',
+      'vec3 col=vC.rgb*(0.30+0.24*hemi+0.48*d1+0.16*d2)*ao;',
+      'gl_FragColor=vec4(col,vC.a);', '}'].join('\n');
+    const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+    const prog = gl.createProgram();
+    gl.attachShader(prog, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { this._glFail = true; this.setState({ noGL: true }); return false; }
+    this.canvas = cv; this.gl = gl; this.prog = prog;
+    this.loc = { p: gl.getAttribLocation(prog, 'aP'), n: gl.getAttribLocation(prog, 'aN'), c: gl.getAttribLocation(prog, 'aC'), vp: gl.getUniformLocation(prog, 'uVP'), m: gl.getUniformLocation(prog, 'uM') };
+    gl.enableVertexAttribArray(this.loc.p); gl.enableVertexAttribArray(this.loc.n); gl.enableVertexAttribArray(this.loc.c);
+    this.bufs = {}; this.counts = {};
+    this.upload(this.buildStatic());
+    return true;
+  }
+
+  upload(G) {
+    const gl = this.gl;
+    if (G.ppl) Object.keys(this.counts).forEach((k) => { if (k.indexOf('i_') === 0 && !G[k]) this.counts[k] = 0; });
+    Object.keys(G).forEach((k) => {
+      const arr = new Float32Array(G[k]);
+      if (!this.bufs[k]) this.bufs[k] = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.bufs[k]);
+      gl.bufferData(gl.ARRAY_BUFFER, arr, gl.STATIC_DRAW);
+      this.counts[k] = arr.length / 10;
+    });
+  }
+
+  drawGroup(k) {
+    const gl = this.gl, n = this.counts[k];
+    if (!n) return;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.bufs[k]);
+    gl.vertexAttribPointer(this.loc.p, 3, gl.FLOAT, false, 40, 0);
+    gl.vertexAttribPointer(this.loc.n, 3, gl.FLOAT, false, 40, 12);
+    gl.vertexAttribPointer(this.loc.c, 4, gl.FLOAT, false, 40, 24);
+    gl.drawArrays(gl.TRIANGLES, 0, n);
+  }
+
+  loop() {
+    this._raf = requestAnimationFrame(this.loop);
+    if (!this.gl && !this.initGL()) return;
+    const cv = this.canvas, w = cv.clientWidth, h = cv.clientHeight;
+    if (!w || !h) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const W = Math.round(w * dpr), Hh = Math.round(h * dpr);
+    if (cv.width !== W || cv.height !== Hh) { cv.width = W; cv.height = Hh; this.dirty = true; }
+    if (this.state.auto) this.goal.yaw += 0.0025;
+    let moving = false;
+    ['tx', 'ty', 'tz', 'yaw', 'pitch', 'dist'].forEach((k) => {
+      const d = this.goal[k] - this.cam[k];
+      if (Math.abs(d) > 0.0005) { this.cam[k] += d * 0.1; moving = true; } else this.cam[k] = this.goal[k];
+    });
+    if (this.needPeople) { this.upload(this.buildPeople()); this.needPeople = false; this.dirty = true; }
+    if (this.needRings) { this.upload(this.buildRings()); this.needRings = false; this.dirty = true; }
+    const now = performance.now(), dt = Math.min(0.05, (now - (this._last || now)) / 1000); this._last = now;
+    if (this.updateOB(dt)) moving = true;
+    if (!moving && !this.dirty) return;
+    this.dirty = false;
+    this.draw(w, h);
+  }
+
+  draw(w, h) {
+    const gl = this.gl, c = this.cam;
+    const eye = [c.tx + c.dist * Math.cos(c.pitch) * Math.sin(c.yaw), c.ty + c.dist * Math.sin(c.pitch), c.tz + c.dist * Math.cos(c.pitch) * Math.cos(c.yaw)];
+    const f = 1 / Math.tan(19 * Math.PI / 180), asp = w / h, nr = 10, fr = 14000;
+    const P = [f / asp, 0, 0, 0, 0, f, 0, 0, 0, 0, (fr + nr) / (nr - fr), -1, 0, 0, 2 * fr * nr / (nr - fr), 0];
+    const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    const nrm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+    const crs = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const z = nrm(sub(eye, [c.tx, c.ty, c.tz])), x = nrm(crs([0, 1, 0], z)), y = crs(z, x);
+    const V = [x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -dot(x, eye), -dot(y, eye), -dot(z, eye), 1];
+    const M = this.m4(P, V);
+    this.VP = M; this.vw = w; this.vh = h;
+    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    gl.clearColor(0.102, 0.118, 0.153, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.useProgram(this.prog);
+    gl.uniformMatrix4fv(this.loc.vp, false, new Float32Array(M));
+    const I4 = new Float32Array(this.T(0, 0, 0));
+    gl.uniformMatrix4fv(this.loc.m, false, I4);
+    gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND); gl.depthMask(true);
+    this.drawGroup('main'); this.drawGroup('ppl'); this.drawGroup('rings');
+    if (eye[2] > -840) this.drawGroup('back');
+    if (eye[0] > -1050) this.drawGroup('left');
+    if (eye[0] < 1050) this.drawGroup('right');
+    if (this.obM) {
+      ['obBody', 'obLegL', 'obLegR', 'obArmL', 'obArmR', 'obMop'].forEach((k) => { gl.uniformMatrix4fv(this.loc.m, false, new Float32Array(this.obM[k])); this.drawGroup(k); });
+      gl.uniformMatrix4fv(this.loc.m, false, I4);
+    }
+    if (this.spots) {
+      const t = performance.now() / 1000;
+      const anim = { paddle: (ph) => [0, Math.sin(t * 4.4 + ph) * 0.22], rod: (ph) => [0, Math.sin(t * 7 + ph) * 0.14], joy: (ph) => [Math.abs(Math.sin(t * 8 + ph)) * 1.4, 0], pad: (ph) => [Math.abs(Math.sin(t * 3 + ph)) * 0.8, Math.sin(t * 2 + ph) * 0.05], cup: () => [0, 0] };
+      Object.keys(this.spots).forEach((id, i) => {
+        const sp = this.spots[id], an = this.reduce ? [0, 0] : anim[sp.hold](i * 1.7);
+        gl.uniformMatrix4fv(this.loc.m, false, new Float32Array(this.m4(this.T(sp.x, an[0], sp.z), this.Ry(sp.yaw + an[1]))));
+        this.drawGroup('i_' + id);
+      });
+      if (this.counts.ball) {
+        const u = this.reduce ? 0.3 : Math.sin(t * 2.2);
+        gl.uniformMatrix4fv(this.loc.m, false, new Float32Array(this.T(500 + u * 150, 80 + Math.abs(Math.cos(t * 4.4)) * 26, 1150 + Math.sin(t * 1.3) * 30)));
+        this.drawGroup('ball');
+      }
+      gl.uniformMatrix4fv(this.loc.m, false, I4);
+    }
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+    this.drawGroup('pplT');
+    if (this.obM) { gl.uniformMatrix4fv(this.loc.m, false, new Float32Array(this.obM.T)); this.drawGroup('obT'); gl.uniformMatrix4fv(this.loc.m, false, I4); }
+    this.drawGroup('trans');
+    gl.depthMask(true); gl.disable(gl.BLEND);
+    this.placeLabels();
+  }
+
+  proj(p) {
+    const M = this.VP; if (!M || !p) return null;
+    const x = M[0] * p[0] + M[4] * p[1] + M[8] * p[2] + M[12];
+    const y = M[1] * p[0] + M[5] * p[1] + M[9] * p[2] + M[13];
+    const w = M[3] * p[0] + M[7] * p[1] + M[11] * p[2] + M[15];
+    if (w <= 1) return null;
+    return [(x / w * 0.5 + 0.5) * this.vw, (0.5 - y / w * 0.5) * this.vh];
+  }
+
+  placeLabels() {
+    const root = this.canvas && this.canvas.parentElement;
+    if (!root) return;
+    root.querySelectorAll('[data-k3d]').forEach((el) => {
+      const s = this.proj(this.anchors[el.getAttribute('data-k3d')]);
+      if (!s || s[0] < -60 || s[1] < -10 || s[0] > this.vw + 60 || s[1] > this.vh + 60) { el.style.visibility = 'hidden'; return; }
+      el.style.visibility = 'visible';
+      el.style.transform = 'translate(' + s[0].toFixed(1) + 'px,' + s[1].toFixed(1) + 'px) translate(-50%,-100%)';
+    });
+  }
+
+  pickAt(px, py) {
+    let best = null, bd = 70;
+    this.AG.forEach((a) => {
+      const s = this.proj(this.anchors['h:' + a.id]); if (!s) return;
+      const d = Math.hypot(s[0] - px, s[1] - py);
+      if (d < bd) { bd = d; best = a.id; }
+    });
+    if (best) this.setState({ sel: best });
+  }
+
+  // ---------- geometry kit ----------
+  kit(G) {
+    let cur = G[Object.keys(G)[0]];
+    const K = {};
+    K.use = (k) => { cur = G[k]; };
+    K.add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+    K.sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    K.mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
+    K.cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    K.norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+    K.lin = (C, R, U, F, x, y, z) => [C[0] + R[0] * x + U[0] * y + F[0] * z, C[1] + R[1] * x + U[1] * y + F[1] * z, C[2] + R[2] * x + U[2] * y + F[2] * z];
+    K.X = [1, 0, 0]; K.Y = [0, 1, 0]; K.Z = [0, 0, 1];
+    K.col = (h, a) => { const n = parseInt(h.slice(1), 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255, a == null ? 1 : a]; };
+    K.mix = (h, g, t) => { const a = K.col(h), b = K.col(g); return '#' + a.slice(0, 3).map((x, i) => Math.round((x + (b[i] - x) * t) * 255).toString(16).padStart(2, '0')).join(''); };
+    const vert = (p, n, c) => { cur.push(p[0], p[1], p[2], n[0], n[1], n[2], c[0], c[1], c[2], c[3]); };
+    K.tri = (a, b, c, na, nb, nc, col, cb, cc) => { vert(a, na, col); vert(b, nb, cb || col); vert(c, nc, cc || col); };
+    K.q4 = (a, b, c, d, n, col) => { K.tri(a, b, c, n, n, n, col); K.tri(a, c, d, n, n, n, col); };
+    K.box = (C, R, U, F, hw, hh, hd, col, fc) => {
+      fc = fc || {};
+      const P = (i, j, k) => K.lin(C, R, U, F, i * hw, j * hh, k * hd);
+      [['px', R, [[1, -1, -1], [1, 1, -1], [1, 1, 1], [1, -1, 1]]],
+       ['nx', K.mul(R, -1), [[-1, -1, -1], [-1, -1, 1], [-1, 1, 1], [-1, 1, -1]]],
+       ['py', U, [[-1, 1, -1], [-1, 1, 1], [1, 1, 1], [1, 1, -1]]],
+       ['ny', K.mul(U, -1), [[-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1]]],
+       ['pz', F, [[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]]],
+       ['nz', K.mul(F, -1), [[-1, -1, -1], [-1, 1, -1], [1, 1, -1], [1, -1, -1]]]
+      ].forEach(([k, nv, cs]) => { const p = cs.map((q) => P(q[0], q[1], q[2])); K.q4(p[0], p[1], p[2], p[3], K.norm(nv), fc[k] || col); });
+    };
+    K.ab = (x, y0, z, w, h, d, col, fc) => K.box([x, y0 + h / 2, z], K.X, K.Y, K.Z, w / 2, h / 2, d / 2, col, fc);
+    K.ellip = (C, R, U, F, a, b, c, col, su, sv) => {
+      su = su || 16; sv = sv || 10;
+      const rows = [];
+      for (let j = 0; j <= sv; j++) {
+        const th = j / sv * Math.PI, row = [];
+        for (let i = 0; i <= su; i++) {
+          const ph = i / su * 2 * Math.PI;
+          const x = Math.sin(th) * Math.cos(ph), y = Math.cos(th), z = Math.sin(th) * Math.sin(ph);
+          row.push([K.lin(C, R, U, F, x * a, y * b, z * c), K.norm(K.lin([0, 0, 0], R, U, F, x / a, y / b, z / c))]);
+        }
+        rows.push(row);
+      }
+      for (let j = 0; j < sv; j++) for (let i = 0; i < su; i++) {
+        const p00 = rows[j][i], p10 = rows[j][i + 1], p11 = rows[j + 1][i + 1], p01 = rows[j + 1][i];
+        K.tri(p00[0], p10[0], p11[0], p00[1], p10[1], p11[1], col);
+        K.tri(p00[0], p11[0], p01[0], p00[1], p11[1], p01[1], col);
+      }
+    };
+    K.sph = (C, r, col, su, sv) => K.ellip(C, K.X, K.Y, K.Z, r, r, r, col, su, sv);
+    K.tube = (A, B, r, col, seg, cap) => {
+      seg = seg || 12;
+      const d = K.norm(K.sub(B, A));
+      const t = Math.abs(d[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+      const u = K.norm(K.cross(d, t)), v = K.cross(d, u);
+      for (let i = 0; i < seg; i++) {
+        const a0 = i / seg * 2 * Math.PI, a1 = (i + 1) / seg * 2 * Math.PI;
+        const n0 = K.add(K.mul(u, Math.cos(a0)), K.mul(v, Math.sin(a0))), n1 = K.add(K.mul(u, Math.cos(a1)), K.mul(v, Math.sin(a1)));
+        const p0 = K.add(A, K.mul(n0, r)), p1 = K.add(A, K.mul(n1, r)), q0 = K.add(B, K.mul(n0, r)), q1 = K.add(B, K.mul(n1, r));
+        K.tri(p0, p1, q1, n0, n1, n1, col); K.tri(p0, q1, q0, n0, n1, n0, col);
+      }
+      if (cap !== false) { K.sph(A, r, col, 8, 5); K.sph(B, r, col, 8, 5); }
+    };
+    K.arc = (C, R, U, rad, a0, a1, th, col, seg) => {
+      seg = seg || 14;
+      for (let i = 0; i < seg; i++) {
+        const t0 = a0 + (a1 - a0) * i / seg, t1 = a0 + (a1 - a0) * (i + 1) / seg;
+        const p0 = K.add(C, K.add(K.mul(R, Math.cos(t0) * rad), K.mul(U, Math.sin(t0) * rad)));
+        const p1 = K.add(C, K.add(K.mul(R, Math.cos(t1) * rad), K.mul(U, Math.sin(t1) * rad)));
+        K.tube(p0, p1, th, col, 6, false); K.sph(p1, th, col, 6, 4);
+      }
+    };
+    K.cone = (A, B, r, col, seg) => {
+      seg = seg || 12;
+      const d = K.norm(K.sub(B, A)), t = Math.abs(d[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+      const u = K.norm(K.cross(d, t)), v = K.cross(d, u), len = Math.hypot(B[0] - A[0], B[1] - A[1], B[2] - A[2]);
+      for (let i = 0; i < seg; i++) {
+        const a0 = i / seg * 2 * Math.PI, a1 = (i + 1) / seg * 2 * Math.PI;
+        const e0 = K.add(K.mul(u, Math.cos(a0)), K.mul(v, Math.sin(a0))), e1 = K.add(K.mul(u, Math.cos(a1)), K.mul(v, Math.sin(a1)));
+        const n0 = K.norm(K.add(e0, K.mul(d, r / len))), n1 = K.norm(K.add(e1, K.mul(d, r / len)));
+        K.tri(K.add(A, K.mul(e0, r)), K.add(A, K.mul(e1, r)), B, n0, n1, K.norm(K.add(n0, n1)), col);
+        K.tri(A, K.add(A, K.mul(e1, r)), K.add(A, K.mul(e0, r)), K.mul(d, -1), K.mul(d, -1), K.mul(d, -1), col);
+      }
+    };
+    K.cyl = (x, y0, z, a0, b0, a1, b1, h, col, seg, n, capCol) => {
+      seg = seg || 32; n = n || 2;
+      const e = 2 / n, sp = (v) => Math.sign(v) * Math.pow(Math.abs(v), e);
+      const ring = [];
+      for (let i = 0; i <= seg; i++) {
+        const t = i / seg * 2 * Math.PI, c = Math.cos(t), s = Math.sin(t);
+        const nx = Math.sign(c) * Math.pow(Math.abs(c), 2 - e) / a0, nz = Math.sign(s) * Math.pow(Math.abs(s), 2 - e) / b0;
+        ring.push({ b: [x + a0 * sp(c), y0, z + b0 * sp(s)], t: [x + a1 * sp(c), y0 + h, z + b1 * sp(s)], n: K.norm([nx, 0, nz]) });
+      }
+      const top = [x, y0 + h, z], bot = [x, y0, z], cc = capCol || col;
+      for (let i = 0; i < seg; i++) {
+        const A = ring[i], B = ring[i + 1];
+        K.tri(A.b, B.b, B.t, A.n, B.n, B.n, col); K.tri(A.b, B.t, A.t, A.n, B.n, A.n, col);
+        K.tri(top, A.t, B.t, K.Y, K.Y, K.Y, cc);
+        K.tri(bot, B.b, A.b, [0, -1, 0], [0, -1, 0], [0, -1, 0], col);
+      }
+    };
+    K.disc = (x, y, z, a, b, cC, cR, seg, n) => {
+      seg = seg || 36; n = n || 2;
+      const e = 2 / n, sp = (v) => Math.sign(v) * Math.pow(Math.abs(v), e);
+      for (let i = 0; i < seg; i++) {
+        const t0 = i / seg * 2 * Math.PI, t1 = (i + 1) / seg * 2 * Math.PI;
+        K.tri([x, y, z], [x + a * sp(Math.cos(t0)), y, z + b * sp(Math.sin(t0))], [x + a * sp(Math.cos(t1)), y, z + b * sp(Math.sin(t1))], K.Y, K.Y, K.Y, cC, cR, cR);
+      }
+    };
+    K.ring = (x, y, z, r0, r1, col, seg) => {
+      seg = seg || 40;
+      for (let i = 0; i < seg; i++) {
+        const t0 = i / seg * 2 * Math.PI, t1 = (i + 1) / seg * 2 * Math.PI;
+        const a = [x + r0 * Math.cos(t0), y, z + r0 * Math.sin(t0)], b = [x + r1 * Math.cos(t0), y, z + r1 * Math.sin(t0)];
+        const c = [x + r1 * Math.cos(t1), y, z + r1 * Math.sin(t1)], d = [x + r0 * Math.cos(t1), y, z + r0 * Math.sin(t1)];
+        K.q4(a, b, c, d, K.Y, col);
+      }
+    };
+    let seed = 11;
+    K.rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    return K;
+  }
+
+  // ---------- static scene ----------
+  buildStatic() {
+    const G = { main: [], trans: [], back: [], left: [], right: [] };
+    const K = this.kit(G), C = K.col;
+    const X0 = -1050, X1 = 1050, ZB = -840, ZL = 690, ZF = 1350;
+    K.use('main');
+    // office carpet tiles
+    const nx = 30, nz = 23, tw = (X1 - X0) / nx, td = (ZL - ZB) / nz;
+    for (let ix = 0; ix < nx; ix++) for (let iz = 0; iz < nz; iz++) {
+      const x0 = X0 + ix * tw, z0 = ZB + iz * td;
+      K.q4([x0, 0, z0], [x0, 0, z0 + td], [x0 + tw, 0, z0 + td], [x0 + tw, 0, z0], K.Y, C((ix + iz) % 2 ? '#a9adb4' : '#a2a6ad'));
+    }
+    // lounge floor (warm wood)
+    for (let p = 0; p < 33; p++) {
+      const z0 = ZL + p * 20;
+      K.q4([X0, 0, z0], [X0, 0, z0 + 20], [X1, 0, z0 + 20], [X1, 0, z0], K.Y, C(p % 2 ? '#c49a6e' : '#bb9166'));
+    }
+    K.ab(0, 0, ZL, X1 - X0, 1.2, 6, C('#6b4429'));
+    // private office wood floors
+    [[X0, -500], [500, X1]].forEach(([x0, x1]) => {
+      for (let p = 0; p < 20; p++) {
+        const z0 = ZB + p * 19.5;
+        K.q4([x0, 0.4, z0], [x0, 0.4, z0 + 19.5], [x1, 0.4, z0 + 19.5], [x1, 0.4, z0], K.Y, C(p % 2 ? '#8a5f3d' : '#936643'));
+      }
+    });
+    K.cyl(-775, 0.5, -600, 120, 70, 120, 70, 0.8, C('#7a3a2f'), 40, 4);
+    K.cyl(775, 0.5, -600, 120, 70, 120, 70, 0.8, C('#30455e'), 40, 4);
+
+    // ===== team desks (rectangular bench desks) =====
+    Object.keys(this.PODS).forEach((k) => {
+      const p = this.PODS[k];
+      K.cyl(p.x, 0, p.z, p.w / 2 + 120, p.d / 2 + 125, p.w / 2 + 120, p.d / 2 + 125, 0.8, C(p.rug), 48, 8);
+      K.ab(p.x, 71, p.z, p.w, 4.5, p.d, C('#c9ab80'), { py: C('#dcc39c') });
+      [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => K.ab(p.x + sx * (p.w / 2 - 8), 0, p.z + sz * (p.d / 2 - 8), 5, 71, 5, C('#e3e5ea')));
+      K.ab(p.x, 58, p.z, p.w - 16, 4, 6, C('#e3e5ea'));
+      if (p.divider) {
+        K.ab(p.x, 75.5, p.z, p.w - 80, 34, 3, C(p.c));
+        K.ab(p.x, 109.5, p.z, p.w - 80, 1.5, 4, C('#e3e5ea'));
+      }
+      K.cyl(p.x + p.w / 2 - 22, 75.5, p.z + (p.divider ? 14 : -40), 6, 6, 7, 7, 9, C('#f2f0ea'), 14);
+      for (let i = 0; i < 4; i++) K.sph([p.x + p.w / 2 - 22 + (K.rnd() - 0.5) * 7, 90 + K.rnd() * 5, p.z + (p.divider ? 14 : -40) + (K.rnd() - 0.5) * 7], 4.5 + K.rnd() * 2, C(['#4f9a57', '#3f7d4a'][i % 2]), 10, 7);
+    });
+
+    // ===== security operations corner (SOC) =====
+    const sq = this.PODS.qa, wz = sq.z - 110;
+    [-172, 172].forEach((x) => K.ab(x, 0, wz, 8, 236, 8, C('#3a3f49')));
+    K.ab(0, 0, wz, 300, 3, 60, C('#3a3f49'));
+    const screens = [[-110, 192], [0, 192], [110, 192], [-110, 128], [0, 128], [110, 128]];
+    const scz = wz + 3.3, Q = (x0, y0, x1, y1, col, dz) => K.q4([x0, y0, scz + (dz || 0)], [x1, y0, scz + (dz || 0)], [x1, y1, scz + (dz || 0)], [x0, y1, scz + (dz || 0)], K.Z, C(col, 2));
+    screens.forEach(([x, y], i) => {
+      K.ab(x, y - 31, wz, 106, 62, 6, C('#15171c'));
+      Q(x - 50, y - 28, x + 50, y + 28, '#0f1a2a');
+      Q(x - 48, y + 19, x + 48, y + 26, i === 4 ? '#ef6a3c' : '#24324a', 0.1);
+      if (i === 0) for (let b = 0; b < 12; b++) { const h = 6 + Math.abs(Math.sin(b * 1.3)) * 30; Q(x - 46 + b * 8, y - 24, x - 41 + b * 8, y - 24 + h, '#35d07f', 0.1); }
+      if (i === 1) { Q(x - 12, y - 6, x + 12, y + 14, '#35d07f', 0.1); K.tri([x - 12, y - 6, scz + 0.1], [x + 12, y - 6, scz + 0.1], [x, y - 20, scz + 0.1], K.Z, K.Z, K.Z, C('#35d07f', 2)); Q(x - 4, y, x + 4, y + 8, '#0f1a2a', 0.2); }
+      if (i === 2) for (let d = 0; d < 22; d++) { const px = x - 44 + K.rnd() * 88, py = y - 24 + K.rnd() * 40; Q(px, py, px + 3, py + 3, d % 5 ? '#2fb5c9' : '#ef6a3c', 0.1); }
+      if (i === 3) [18, 30, 12, 26, 36, 20].forEach((h, b) => Q(x - 40 + b * 14, y - 24, x - 31 + b * 14, y - 24 + h, '#5b8def', 0.1));
+      if (i === 4) for (let l = 0; l < 4; l++) Q(x - 44, y + 8 - l * 9, x - 44 + 30 + (l * 17) % 50, y + 12 - l * 9, '#ffd2c2', 0.1);
+      if (i === 5) for (let l = 0; l < 6; l++) Q(x - 46, y + 12 - l * 7, x - 46 + 40 + (l * 23) % 50, y + 15 - l * 7, l % 3 ? '#7fe0ae' : '#9aa1b2', 0.1);
+    });
+    K.cyl(172, 236, wz, 6, 6, 6, 6, 4, C('#2a2d33'), 14);
+    K.sph([172, 245, wz], 6, C('#ff4d4d', 2), 12, 8);
+    K.ab(-172, 222, wz + 8, 12, 9, 18, C('#e8e8ea'));
+    K.tube([-172, 226.5, wz + 17], [-172, 226.5, wz + 21], 3.4, C('#1d1d22'), 10, false);
+    // server racks
+    [-262, -196].forEach((x) => {
+      K.ab(x, 0, sq.z - 70, 62, 200, 80, C('#1f2228'), { pz: C('#262a32') });
+      const fz = sq.z - 70 + 40.3;
+      for (let i = 0; i < 11; i++) {
+        const y = 16 + i * 16.5;
+        K.q4([x - 26, y, fz], [x + 26, y, fz], [x + 26, y + 12, fz], [x - 26, y + 12, fz], K.Z, C('#2e333d'));
+        K.q4([x - 22, y + 4, fz + 0.1], [x - 16, y + 4, fz + 0.1], [x - 16, y + 8, fz + 0.1], [x - 22, y + 8, fz + 0.1], K.Z, C(i % 4 === 1 ? '#f5b83d' : '#35d07f', 2));
+        K.q4([x - 12, y + 5, fz + 0.1], [x + 20, y + 5, fz + 0.1], [x + 20, y + 7, fz + 0.1], [x - 12, y + 7, fz + 0.1], K.Z, C('#3d4350'));
+      }
+    });
+    // firewall / network cabinet + router
+    K.ab(236, 0, sq.z - 60, 84, 92, 60, C('#2a2d33'));
+    for (let i = 0; i < 4; i++) {
+      const y = 14 + i * 19, fz = sq.z - 60 + 30.3;
+      K.q4([200, y, fz], [272, y, fz], [272, y + 14, fz], [200, y + 14, fz], K.Z, C('#353a45'));
+      for (let j = 0; j < 8; j++) K.q4([204 + j * 8, y + 5, fz + 0.1], [208 + j * 8, y + 5, fz + 0.1], [208 + j * 8, y + 9, fz + 0.1], [204 + j * 8, y + 9, fz + 0.1], K.Z, C(j % 3 ? '#35d07f' : '#f5b83d', 2));
+    }
+    K.ab(236, 92, sq.z - 60, 44, 7, 26, C('#e8e8ea'));
+    [-1, 1].forEach((sx) => K.tube([236 + sx * 16, 98, sq.z - 70], [236 + sx * 22, 124, sq.z - 72], 1.3, C('#2a2d33'), 6, true));
+    // QA test devices on the security desk
+    [[96, '#8fd8ff'], [106, '#b28dff'], [116, '#35d07f']].forEach(([x, cc]) => K.ab(x, 75.5, sq.z + 38, 8, 1.2, 15, C('#1d1d22'), { py: C(cc, 2) }));
+    K.ab(-108, 75.5, sq.z + 38, 22, 1.2, 16, C('#1d1d22'), { py: C('#5b8def', 2) });
+
+    // ===== data team: database stack =====
+    const dt = this.PODS.data;
+    for (let i = 0; i < 3; i++) { K.cyl(dt.x, 75.5 + i * 11, dt.z + 40, 14, 14, 14, 14, 9, C('#5b8def'), 24, 2, C('#7fa6f2')); K.ring(dt.x, 75.5 + i * 11 + 9.2, dt.z + 40, 11, 13, C('#8fd8ff', 2), 24); }
+    // ===== PMO: Gantt & risk board =====
+    const pm = this.PODS.pmo, bx = pm.x - 210, bzz = pm.z;
+    [-1, 1].forEach((sx) => { K.ab(bx + sx * 88, 0, bzz, 5, 200, 5, C('#9aa3ad')); K.ab(bx + sx * 88, 0, bzz, 40, 3, 30, C('#6b707b')); });
+    K.ab(bx, 70, bzz, 180, 120, 3, C('#e6e8ec'), { pz: C('#ffffff') });
+    const gz = bzz + 1.7, GQ = (x0, y0, x1, y1, col) => K.q4([x0, y0, gz], [x1, y0, gz], [x1, y1, gz], [x0, y1, gz], K.Z, C(col));
+    GQ(bx - 84, 174, bx + 84, 186, '#2b3450');
+    [['#5b8def', 0, 50], ['#5b8def', 30, 80], ['#35b87a', 50, 110], ['#f5b83d', 90, 140], ['#ef6a3c', 120, 160], ['#b28dff', 60, 150]].forEach(([cc, a, b], i) => GQ(bx - 70 + a, 160 - i * 13, bx - 70 + b, 168 - i * 13, cc));
+    for (let i = 0; i < 6; i++) GQ(bx - 82, 160 - i * 13, bx - 74, 168 - i * 13, '#9aa1b2');
+    [['#35b87a', -30], ['#f5b83d', 0], ['#ef6a3c', 30]].forEach(([cc, o]) => { K.sph([bx + 60 + o * 0.6, 84, gz + 1], 4, C(cc, 2), 10, 6); });
+    K.ab(pm.x + 60, 75.5, pm.z + 20, 26, 6, 34, C('#f2f0ea'));
+    K.ab(pm.x + 60, 81.5, pm.z + 20, 24, 0.6, 32, C('#b28dff'));
+
+    // ===== executive offices =====
+    const desk = (x, z) => {
+      K.ab(x, 71, z, 172, 4.5, 78, C('#5b3a24'), { py: C('#6b4429') });
+      K.ab(x - 80, 0, z, 6, 71, 74, C('#4a2f1d'));
+      K.ab(x + 80, 0, z, 6, 71, 74, C('#4a2f1d'));
+      K.ab(x, 20, z + 33, 156, 51, 4, C('#4a2f1d'));
+      K.ab(x + 60, 0, z - 4, 34, 62, 60, C('#4a2f1d'));
+      K.cyl(x - 62, 75.5, z + 18, 4, 4, 4.5, 4.5, 9, C('#f2f0ea'), 14);
+      K.ab(x + 50, 75.5, z + 14, 22, 1.4, 28, C('#e8e3d6'));
+    };
+    desk(-775, -700); desk(775, -700);
+    const guest = (x, z, yaw, col) => {
+      const f = [Math.sin(yaw), 0, Math.cos(yaw)], r = [Math.cos(yaw), 0, -Math.sin(yaw)];
+      const L = (lx, ly, lz) => [x + r[0] * lx + f[0] * lz, ly, z + r[2] * lx + f[2] * lz];
+      K.box(L(0, 44, 0), r, K.Y, f, 23, 5, 22, C(col));
+      K.box(L(0, 72, -20), r, K.Y, f, 22, 22, 3.5, C(col));
+      [[-18, -16], [18, -16], [-18, 16], [18, 16]].forEach(([a, b]) => K.tube(L(a, 0, b), L(a, 40, b), 1.8, C('#2a2d33'), 8, false));
+      K.box(L(-23, 58, 0), r, K.Y, f, 2.5, 12, 18, C(col));
+      K.box(L(23, 58, 0), r, K.Y, f, 2.5, 12, 18, C(col));
+    };
+    guest(-820, -600, Math.PI, '#6b4f3a'); guest(-730, -600, Math.PI, '#6b4f3a');
+    guest(775, -600, Math.PI, '#3e4a5c');
+    const shelf = (x, z, dir) => {
+      const R = [0, 0, dir], F = [dir, 0, 0], wood = C('#4a2f1d');
+      K.box(K.lin([x, 95, z], R, K.Y, F, 0, 0, -13), R, K.Y, F, 82, 95, 2, wood);
+      K.box(K.lin([x, 95, z], R, K.Y, F, -80, 0, 0), R, K.Y, F, 2, 95, 15, wood);
+      K.box(K.lin([x, 95, z], R, K.Y, F, 80, 0, 0), R, K.Y, F, 2, 95, 15, wood);
+      K.box([x, 188, z], R, K.Y, F, 82, 2, 15, wood);
+      for (let s = 0; s < 4; s++) {
+        const y0 = 12 + s * 45;
+        let p = -74;
+        while (p < 72) {
+          const w = 3 + K.rnd() * 3, hgt = 26 + K.rnd() * 12;
+          if (K.rnd() > 0.12) K.box(K.lin([x, y0 + hgt / 2, z], R, K.Y, F, p + w / 2, 0, 4), R, K.Y, F, w / 2, hgt / 2, 10, C(['#8e3b2e', '#2e5a8e', '#d8b45a', '#3b6b4a', '#e9e3d3', '#5b4b8a'][Math.floor(K.rnd() * 6)]));
+          p += w + 0.6;
+        }
+        K.box([x, y0 - 1, z], R, K.Y, F, 80, 1.5, 15, C('#5b3a24'));
+      }
+    };
+    shelf(-1034, -660, 1);
+    K.ab(1018, 0, -760, 44, 180, 64, C('#22252c'), { nx: C('#2a2e36') });
+    for (let i = 0; i < 9; i++) K.q4([995.5, 30 + i * 16, -780], [995.5, 30 + i * 16, -774], [995.5, 33 + i * 16, -774], [995.5, 33 + i * 16, -780], [-1, 0, 0], C(i % 3 ? '#35d07f' : '#f5b83d', 2));
+    const plant = (x, z, s) => {
+      K.cyl(x, 0, z, 13 * s, 13 * s, 17 * s, 17 * s, 36 * s, C('#d9d3c4'), 24);
+      K.disc(x, 36 * s + 0.2, z, 15 * s, 15 * s, C('#3b2a1e'), C('#3b2a1e'), 20);
+      for (let i = 0; i < 7; i++) {
+        const a = i / 7 * 6.283 + K.rnd(), rr = (6 + K.rnd() * 10) * s;
+        K.ellip([x + Math.cos(a) * rr, (52 + K.rnd() * 40) * s, z + Math.sin(a) * rr], K.X, K.Y, K.Z, (14 + K.rnd() * 6) * s, (18 + K.rnd() * 10) * s, (14 + K.rnd() * 6) * s, C(['#3f7d4a', '#4f9a57', '#2f6a3d'][i % 3]), 12, 8);
+      }
+    };
+    plant(-1015, -485, 0.9); plant(1015, -485, 0.9); plant(-260, -805, 0.9); plant(260, -805, 0.9); plant(0, -200, 1.1);
+    plant(-1010, 640, 1.1); plant(1010, 640, 1.1); plant(100, 1320, 1.1); plant(850, 1320, 1);
+    K.ab(0, 0, -815, 260, 56, 42, C('#2f323a'), { py: C('#6b4429') });
+    K.ab(-1010, 0, 200, 32, 96, 32, C('#e8e8ea'));
+    K.cyl(-1010, 96, 200, 12, 12, 12, 12, 36, C('#8fc6e8'), 20);
+    K.ab(1012, 0, 200, 46, 70, 52, C('#d9dbe0'), { py: C('#3a3f49') });
+
+    // ===== lounge =====
+    const ppx = 500, ppz = 1150, py = 76.1;
+    K.ab(ppx, 73, ppz, 274, 3, 152, C('#1f5f8b'), { py: C('#2470a3') });
+    const line = (x0, z0, x1, z1) => K.q4([x0, py, z0], [x0, py, z1], [x1, py, z1], [x1, py, z0], K.Y, C('#f4f4f4'));
+    line(ppx - 137, ppz - 76, ppx + 137, ppz - 74); line(ppx - 137, ppz + 74, ppx + 137, ppz + 76);
+    line(ppx - 137, ppz - 76, ppx - 135, ppz + 76); line(ppx + 135, ppz - 76, ppx + 137, ppz + 76);
+    line(ppx - 137, ppz - 0.4, ppx + 137, ppz + 0.4);
+    K.ab(ppx, 76, ppz, 1, 15, 162, C('#ececec'));
+    [[-110, -60], [110, -60], [-110, 60], [110, 60]].forEach(([a, b]) => K.tube([ppx + a, 0, ppz + b], [ppx + a, 73, ppz + b], 3, C('#2a2d33'), 8, false));
+    K.ellip([ppx - 90, 76.8, ppz + 30], K.X, K.Y, K.Z, 8, 0.9, 9, C('#d94040'), 12, 4);
+    const fx = 700, fz = 860;
+    K.ab(fx, 60, fz, 120, 4, 70, C('#2f8a4a'));
+    K.ab(fx, 60, fz - 34, 120, 26, 3, C('#6b4429')); K.ab(fx, 60, fz + 34, 120, 26, 3, C('#6b4429'));
+    K.ab(fx - 59, 60, fz, 3, 26, 70, C('#6b4429')); K.ab(fx + 59, 60, fz, 3, 26, 70, C('#6b4429'));
+    [[-50, -28], [50, -28], [-50, 28], [50, 28]].forEach(([a, b]) => K.ab(fx + a, 0, fz + b, 6, 60, 6, C('#4a2f1d')));
+    for (let i = 0; i < 8; i++) {
+      const rx = fx - 52 + i * 15;
+      K.tube([rx, 80, fz - 46], [rx, 80, fz + 46], 1, C('#c9ccd3'), 6, false);
+      K.sph([rx, 80, fz + (i % 2 ? 48 : -48)], 2.6, C('#1d1d22'), 8, 5);
+      [-16, 0, 16].forEach((o) => K.ellip([rx, 74, fz + o], K.X, K.Y, K.Z, 2.4, 6.5, 2.4, C(i % 2 ? '#d94040' : '#3d6fd6'), 8, 6));
+    }
+    const sx = -760, sz = 1050, sofa = C('#d0704f'), soft = C('#e08a69');
+    K.cyl(-860, 0.6, sz, 210, 200, 210, 200, 0.8, C('#6a5aa0'), 48, 3);
+    K.ab(sx, 0, sz, 90, 42, 210, sofa);
+    K.ab(sx + 38, 42, sz, 16, 46, 210, sofa);
+    K.ab(sx - 3, 42, sz - 98, 84, 22, 16, sofa); K.ab(sx - 3, 42, sz + 98, 84, 22, 16, sofa);
+    [-60, 0, 60].forEach((o) => K.ab(sx - 8, 42, sz + o, 70, 10, 58, soft));
+    K.ab(sx + 26, 58, sz - 50, 10, 28, 30, C('#f5b83d')); K.ab(sx + 26, 58, sz + 50, 10, 28, 30, C('#5b8def'));
+    K.cyl(sx - 120, 0, sz, 8, 8, 8, 8, 36, C('#3a3f49'), 14);
+    K.cyl(sx - 120, 36, sz, 40, 40, 40, 40, 4, C('#7d5537'), 32);
+    K.ab(sx - 125, 40, sz - 8, 14, 3, 9, C('#2a2d33')); K.ab(sx - 112, 40, sz + 10, 14, 3, 9, C('#f2f0ea'));
+    K.cyl(sx - 120, 40, sz + 24, 7, 7, 8, 8, 6, C('#e9a23b'), 14);
+    K.ab(-1025, 0, sz, 40, 40, 150, C('#2f323a'), { py: C('#6b4429') });
+    K.q4([-1004.8, 18, sz - 20], [-1004.8, 18, sz - 14], [-1004.8, 21, sz - 14], [-1004.8, 21, sz - 20], [1, 0, 0], C('#35d07f', 2));
+    K.ellip([-900, 24, 860], K.X, K.Y, K.Z, 34, 24, 34, C('#e9a23b'), 16, 10);
+    K.ellip([-900, 24, 1250], K.X, K.Y, K.Z, 34, 24, 34, C('#5b8def'), 16, 10);
+    [[-250, '#7a3fd1', '#f5b83d'], [-160, '#d9405a', '#35d07f']].forEach(([x, body, mq]) => {
+      const az = 760, fzz = az + 35.3;
+      K.ab(x, 0, az, 66, 175, 70, C(body), { pz: C('#1d1d22') });
+      K.q4([x - 26, 112, fzz], [x + 26, 112, fzz], [x + 26, 150, fzz], [x - 26, 150, fzz], K.Z, C('#2b5fd9', 2));
+      K.q4([x - 18, 120, fzz + 0.2], [x - 4, 120, fzz + 0.2], [x - 4, 132, fzz + 0.2], [x - 18, 132, fzz + 0.2], K.Z, C('#f5b83d', 2));
+      K.q4([x + 4, 128, fzz + 0.2], [x + 16, 128, fzz + 0.2], [x + 16, 140, fzz + 0.2], [x + 4, 140, fzz + 0.2], K.Z, C('#ff7a9c', 2));
+      K.q4([x - 30, 156, fzz], [x + 30, 156, fzz], [x + 30, 172, fzz], [x - 30, 172, fzz], K.Z, C(mq, 2));
+      K.ab(x, 92, az + 45, 62, 8, 20, C('#1b1b26'));
+      K.sph([x - 14, 101, az + 45], 3, C('#2a2d33'), 8, 6); K.tube([x - 14, 100, az + 45], [x - 14, 107, az + 45], 1, C('#2a2d33'), 6, false); K.sph([x - 14, 108, az + 45], 2.4, C('#d94040'), 8, 6);
+      [[6, '#35d07f'], [14, '#f5b83d'], [22, '#5b8def']].forEach(([o, cc]) => K.sph([x + o, 100.5, az + 45], 2.3, C(cc), 8, 6));
+    });
+    K.ab(990, 0, 1070, 60, 92, 340, C('#3a3f49'), { py: C('#e8e3d6') });
+    K.ab(998, 92, 980, 40, 38, 36, C('#c9ccd3'));
+    K.q4([977.8, 118, 974], [977.8, 118, 980], [977.8, 122, 980], [977.8, 122, 974], [-1, 0, 0], C('#ef6a3c', 2));
+    [1020, 1035, 1050].forEach((z, i) => K.cyl(980, 92, z, 4, 4, 4.5, 4.5, 9, C(['#f2f0ea', '#f5b83d', '#5b8def'][i]), 14));
+    K.cyl(992, 92, 1160, 16, 16, 18, 18, 6, C('#e8e3d6'), 20);
+    [['#f5b83d', 0, 0], ['#d94040', 7, 4], ['#4f9a57', -6, 5]].forEach(([cc, a, b]) => K.sph([992 + a, 103, 1160 + b], 5.5, C(cc), 10, 7));
+    K.ab(998, 0, 1290, 56, 180, 52, C('#e2e4e8'));
+    K.ab(969.6, 100, 1275, 1.2, 40, 3, C('#9aa3ad'));
+    [960, 1050, 1140].forEach((z) => {
+      K.tube([930, 0, z], [930, 64, z], 2.5, C('#9aa3ad'), 8, false);
+      K.cyl(930, 0, z, 16, 16, 16, 16, 2, C('#6b707b'), 18);
+      K.cyl(930, 64, z, 18, 18, 18, 18, 6, C('#2f323a'), 20);
+    });
+
+    // shadows
+    K.use('trans');
+    const shadow = (x, z, a, b, al, n) => K.disc(x, 1.3, z, a, b, C('#000000', al), C('#000000', 0), 40, n || 2);
+    Object.keys(this.PODS).forEach((k) => { const p = this.PODS[k]; shadow(p.x, p.z, p.w / 2 + 25, p.d / 2 + 25, 0.24, 8); });
+    shadow(-775, -700, 120, 60, 0.25, 4); shadow(775, -700, 120, 60, 0.25, 4);
+    shadow(ppx, ppz, 170, 100, 0.25, 4); shadow(fx, fz, 80, 50, 0.25, 4); shadow(sx, sz, 70, 130, 0.25, 4);
+    shadow(-229, sq.z - 70, 85, 55, 0.3, 6); shadow(0, wz, 190, 30, 0.25, 6);
+    // glass walls
+    const glassZ = (x0, x1, z) => {
+      K.use('trans'); K.q4([x0, 2, z], [x1, 2, z], [x1, 240, z], [x0, 240, z], K.Z, C('#bfe0ee', 0.16));
+      K.use('main'); K.ab((x0 + x1) / 2, 240, z, x1 - x0, 6, 4, C('#9aa3ad')); K.ab((x0 + x1) / 2, 0, z, x1 - x0, 5, 4, C('#9aa3ad'));
+      for (let x = x0; x <= x1 + 0.1; x += (x1 - x0) / Math.max(1, Math.round((x1 - x0) / 130))) K.ab(x, 0, z, 3.5, 246, 4.5, C('#9aa3ad'));
+    };
+    const glassX = (z0, z1, x) => {
+      K.use('trans'); K.q4([x, 2, z0], [x, 2, z1], [x, 240, z1], [x, 240, z0], K.X, C('#bfe0ee', 0.16));
+      K.use('main'); K.ab(x, 240, (z0 + z1) / 2, 4, 6, z1 - z0, C('#9aa3ad')); K.ab(x, 0, (z0 + z1) / 2, 4, 5, z1 - z0, C('#9aa3ad'));
+      for (let z = z0; z <= z1 + 0.1; z += (z1 - z0) / 3) K.ab(x, 0, z, 4.5, 246, 3.5, C('#9aa3ad'));
+    };
+    glassZ(X0, -620, -450); glassZ(-530, -500, -450); glassX(ZB, -450, -500);
+    glassZ(500, 530, -450); glassZ(620, X1, -450); glassX(ZB, -450, 500);
+    K.use('main');
+    K.ab(-575, 150, -447.5, 44, 12, 1, C('#f5b83d', 2)); K.ab(575, 150, -447.5, 44, 12, 1, C('#f5b83d', 2));
+
+    // back wall + decor
+    K.use('back');
+    const bz = ZB - 6;
+    K.ab(0, 0, bz, X1 - X0 + 24, 270, 12, C('#e7e2d8'), { pz: C('#ebe6dc') });
+    K.ab(0, 0, ZB + 0.5, X1 - X0, 10, 1, C('#4a4e58'));
+    K.ab(0, 112, ZB + 3, 290, 166, 5, C('#15171c'));
+    const tz = ZB + 5.6;
+    K.q4([-138, 118, tz], [138, 118, tz], [138, 272, tz], [-138, 272, tz], K.Z, C('#1d2431', 2));
+    [[-90, ['#f5b83d', '#f5b83d']], [0, ['#5b8def', '#5b8def', '#ef6a3c']], [90, ['#35b87a', '#35b87a', '#35b87a', '#35b87a']]].forEach(([cx, cards]) => {
+      K.q4([cx - 38, 250, tz + 0.4], [cx + 38, 250, tz + 0.4], [cx + 38, 262, tz + 0.4], [cx - 38, 262, tz + 0.4], K.Z, C('#3a4256', 2));
+      cards.forEach((cc, i) => { const y = 228 - i * 26; K.q4([cx - 36, y, tz + 0.4], [cx + 36, y, tz + 0.4], [cx + 36, y + 18, tz + 0.4], [cx - 36, y + 18, tz + 0.4], K.Z, C(cc, 2)); });
+    });
+    [[-900, '#c96f4a', '#2f4f6f'], [-775, '#d9b45a', '#3d6b55'], [-650, '#5a7fb0', '#e8d9b8']].forEach(([x, a, b]) => {
+      K.ab(x, 140, ZB + 2.5, 80, 60, 3, C('#2a1d14'));
+      K.q4([x - 34, 146, ZB + 4.2], [x + 34, 146, ZB + 4.2], [x + 34, 194, ZB + 4.2], [x - 34, 194, ZB + 4.2], K.Z, C(a));
+      K.q4([x - 34, 146, ZB + 4.4], [x + 2, 146, ZB + 4.4], [x + 2, 176, ZB + 4.4], [x - 34, 176, ZB + 4.4], K.Z, C(b));
+    });
+    K.ab(775, 100, ZB + 2, 230, 120, 3, C('#f4f5f6'), { pz: C('#ffffff') });
+    [[715, 190, '#5b8def'], [775, 190, '#35b87a'], [835, 190, '#5b8def'], [745, 140, '#ef6a3c'], [805, 140, '#b28dff']].forEach(([x, y, cc]) => {
+      K.q4([x - 20, y - 10, ZB + 3.8], [x + 20, y - 10, ZB + 3.8], [x + 20, y + 10, ZB + 3.8], [x - 20, y + 10, ZB + 3.8], K.Z, C(cc));
+    });
+    [[715, 180, 745, 150], [775, 180, 775, 160], [835, 180, 805, 150]].forEach(([x0, y0, x1, y1]) => {
+      const dx = x1 - x0, dy = y1 - y0, l = Math.hypot(dx, dy), nx2 = -dy / l * 1.2, ny2 = dx / l * 1.2;
+      K.q4([x0 + nx2, y0 + ny2, ZB + 3.7], [x1 + nx2, y1 + ny2, ZB + 3.7], [x1 - nx2, y1 - ny2, ZB + 3.7], [x0 - nx2, y0 - ny2, ZB + 3.7], K.Z, C('#3a3f49'));
+    });
+    const sideWall = (gx, sgn, wins) => {
+      K.use(gx);
+      const x = sgn * (X1 + 6), xi = sgn * (X1 - 0.6), zc = (ZB + ZF) / 2, zl = ZF - ZB;
+      K.ab(x, 0, zc, 12, 270, zl + 12, C('#e2ddd2'), sgn < 0 ? { px: C('#e7e2d8') } : { nx: C('#e7e2d8') });
+      K.ab(xi, 0, zc, 1, 10, zl, C('#4a4e58'));
+      wins.forEach(([z0, z1]) => {
+        K.q4([xi, 80, z0], [xi, 80, z1], [xi, 238, z1], [xi, 238, z0], [-sgn, 0, 0], C('#cfe4f2', 2));
+        K.ab(xi, 76, (z0 + z1) / 2, 3, 6, z1 - z0 + 8, C('#8f98a3'));
+        K.ab(xi, 236, (z0 + z1) / 2, 3, 6, z1 - z0 + 8, C('#8f98a3'));
+        K.ab(xi, 78, z0, 3, 162, 5, C('#8f98a3')); K.ab(xi, 78, z1, 3, 162, 5, C('#8f98a3')); K.ab(xi, 78, (z0 + z1) / 2, 3, 162, 4, C('#8f98a3'));
+      });
+    };
+    sideWall('left', -1, [[-810, -480], [-380, -60], [40, 360], [440, 640], [740, 940], [1180, 1320]]);
+    sideWall('right', 1, [[-810, -480], [-380, -60], [40, 360], [440, 640], [740, 940], [1020, 1220]]);
+    K.use('left');
+    K.ab(-1047, 105, sz, 5, 92, 164, C('#15171c'));
+    K.q4([-1044.2, 110, sz - 78], [-1044.2, 110, sz + 78], [-1044.2, 192, sz + 78], [-1044.2, 192, sz - 78], [1, 0, 0], C('#24305a', 2));
+    [[-60, 130, 30, 20, '#35d07f'], [-10, 150, 22, 22, '#f5b83d'], [35, 125, 26, 34, '#ff7a9c'], [-45, 165, 60, 8, '#8fd8ff']].forEach(([dz, y, w, h, cc]) => {
+      K.q4([-1044, y, sz + dz], [-1044, y, sz + dz + w], [-1044, y + h, sz + dz + w], [-1044, y + h, sz + dz], [1, 0, 0], C(cc, 2));
+    });
+    return G;
+  }
+
+  // ---------- characters ----------
+  animalHead(K, L, r, f, hy, a, s, pc) {
+    const C = K.col, fur = pc(a.skin), acc = pc(a.acc), muz = pc(a.muz), dark = pc('#26222a'), pink = pc('#f4a3b4');
+    const sp = a.animal, worried = s === 'macet';
+    const W = sp === 'frog' ? 19 : 17, Hh = sp === 'frog' ? 14 : 16;
+    K.ellip(L(0, hy, 0), r, K.Y, f, W, Hh, 16, fur, 20, 14);
+    let eyeZ = 15, eyeStyle = 'dot', noseCol = dark, muzzle = true;
+    // --- species features ---
+    const roundEars = (size, inner, x, y) => [-1, 1].forEach((sx) => { K.sph(L(sx * x, hy + y, -2), size, sp === 'panda' ? acc : fur, 12, 8); K.ellip(L(sx * x, hy + y, -2 + size * 0.62), r, K.Y, f, size * 0.6, size * 0.6, size * 0.3, inner, 10, 6); });
+    const pointEars = (col, inner) => [-1, 1].forEach((sx) => { K.cone(L(sx * 9.5, hy + 10, -1), L(sx * 13.5, hy + 26, -1), 6.5, col, 14); K.cone(L(sx * 9.9, hy + 11.5, 2.2), L(sx * 13, hy + 23, 1.6), 3.6, inner, 10); });
+    if (sp === 'lion') {
+      for (let i = 0; i < 14; i++) { const t = i / 14 * Math.PI * 2; K.ellip(L(Math.cos(t) * 17, hy + Math.sin(t) * 16, -5), r, K.Y, f, 8, 8, 7, acc, 10, 7); }
+      roundEars(4.5, muz, 11, 14); noseCol = pc('#7a3e2e');
+    } else if (sp === 'owl') {
+      K.ellip(L(0, hy, 10.5), r, K.Y, f, 14, 12.5, 6.5, muz, 16, 10);
+      [-1, 1].forEach((sx) => K.cone(L(sx * 10, hy + 11, -1), L(sx * 15, hy + 23, -2), 4.5, acc, 10));
+      [-6.5, 6.5].forEach((x) => K.ellip(L(x, hy + 0.5, 15.6), r, K.Y, f, 5.2, 5.2, 1.6, pc('#f5c84a'), 14, 6));
+      K.cone(L(0, hy - 3, 16.2), L(0, hy - 8.5, 19.5), 2.6, pc('#f0a030'), 10);
+      eyeZ = 16.8; muzzle = false;
+    } else if (sp === 'rabbit') {
+      [-1, 1].forEach((sx) => { K.ellip(L(sx * 6.5, hy + 26, -2), r, K.Y, f, 4.6, 13.5, 3.4, fur, 12, 10); K.ellip(L(sx * 6.5, hy + 26, 0.8), r, K.Y, f, 2.6, 10.5, 1.2, acc, 10, 8); });
+      noseCol = pink;
+    } else if (sp === 'cat' || sp === 'fox') {
+      pointEars(fur, sp === 'fox' ? pc('#2a2226') : pink);
+      if (sp === 'cat') noseCol = pink;
+    } else if (sp === 'bear') { roundEars(5.5, muz, 12, 12); }
+    else if (sp === 'panda') {
+      roundEars(5.5, acc, 12, 12);
+      [-6.5, 6.5].forEach((x) => K.ellip(L(x, hy - 0.5, 13.6), r, K.Y, f, 4.8, 5.8, 2.6, acc, 12, 8));
+      eyeStyle = 'ring';
+    } else if (sp === 'koala') {
+      [-1, 1].forEach((sx) => { K.sph(L(sx * 15.5, hy + 9, -2), 9, fur, 14, 10); K.ellip(L(sx * 15.5, hy + 9, 4), r, K.Y, f, 6, 6, 2.5, acc, 10, 6); });
+      K.ellip(L(0, hy - 3, 15.8), r, K.Y, f, 3.8, 4.8, 2.6, dark, 12, 8);
+      muzzle = false;
+    } else if (sp === 'hamster') {
+      roundEars(4.2, pink, 11, 13); noseCol = pink;
+      [-1, 1].forEach((sx) => K.ellip(L(sx * 10, hy - 6, 10), r, K.Y, f, 6, 5, 5, muz, 12, 8));
+    } else if (sp === 'frog') {
+      [-1, 1].forEach((sx) => {
+        K.sph(L(sx * 7.5, hy + 11, 5), 6.2, fur, 14, 10);
+        K.sph(L(sx * 7.5, hy + 11.5, 8.8), 4.4, pc('#ffffff'), 12, 8);
+        K.sph(L(sx * 7.5, hy + 11.8, 12.2), 2.6, dark, 10, 7);
+        K.sph(L(sx * 7.5 - 0.9, hy + 13, 14.4), 0.8, C('#ffffff', 2), 6, 4);
+      });
+      eyeStyle = 'none'; muzzle = false;
+    } else if (sp === 'penguin') {
+      K.ellip(L(0, hy - 3, 8.5), r, K.Y, f, 13, 11, 9.5, muz, 16, 10);
+      K.cone(L(0, hy - 4, 17), L(0, hy - 5.5, 23), 2.8, pc('#f0a030'), 10);
+      eyeZ = 16.5; muzzle = false;
+    } else if (sp === 'dog') {
+      [-1, 1].forEach((sx) => K.ellip(L(sx * 16.5, hy, -1), r, K.Y, f, 4.6, 10.5, 7, acc, 12, 8));
+    } else if (sp === 'raccoon') {
+      pointEars(fur, pc('#2a2a30'));
+      K.ellip(L(0, hy + 0.5, 12.6), r, K.Y, f, 14.5, 4.8, 4.6, acc, 16, 8);
+      eyeStyle = 'ring';
+    } else if (sp === 'elephant') {
+      [-1, 1].forEach((sx) => { K.ellip(L(sx * 18.5, hy + 1, -3), r, K.Y, f, 3.2, 13, 11.5, fur, 14, 10); K.ellip(L(sx * 19.6, hy + 1, -1.5), r, K.Y, f, 1.4, 9.5, 8, acc, 12, 8); });
+      const tr = [[0, -1, 15], [0, -8, 19], [0, -15, 20.5], [0, -20, 23.5]];
+      for (let i = 0; i < 3; i++) K.tube(L(tr[i][0], hy + tr[i][1], tr[i][2]), L(tr[i + 1][0], hy + tr[i + 1][1], tr[i + 1][2]), 4.2 - i * 0.7, fur, 10, true);
+      muzzle = false;
+    } else if (sp === 'wolf') {
+      pointEars(fur, acc);
+    } else if (sp === 'beaver') {
+      roundEars(3.8, acc, 12.5, 11);
+    } else if (sp === 'sheep') {
+      for (let i = 0; i < 11; i++) { const t = i / 11 * Math.PI * 2; K.sph(L(Math.cos(t) * 13, hy + 10 + Math.sin(t) * 3.5, -2 + Math.sin(t) * 9), 6.5, acc, 10, 7); }
+      K.sph(L(0, hy + 15, 1), 7, acc, 10, 7);
+      [-1, 1].forEach((sx) => K.ellip(L(sx * 18, hy + 3, 0), r, K.Y, f, 7, 3.4, 4.4, pc('#6a5a52'), 10, 6));
+      noseCol = pink;
+    } else if (sp === 'monkey') {
+      [-1, 1].forEach((sx) => { K.sph(L(sx * 17.5, hy + 1, -1), 5.6, fur, 12, 8); K.sph(L(sx * 18.2, hy + 1, 0.5), 3.6, muz, 10, 6); });
+      K.ellip(L(0, hy - 1, 10.4), r, K.Y, f, 12.5, 11, 7, muz, 16, 10);
+      eyeZ = 16;
+    }
+    // --- muzzle, nose, mouth ---
+    if (muzzle) {
+      K.ellip(L(0, hy - 6, 12.5), r, K.Y, f, sp === 'lion' ? 9.5 : 8.5, 6, 5, muz, 14, 8);
+      K.ellip(L(0, hy - 3.4, 17.2), r, K.Y, f, 2.7, 1.9, 1.6, noseCol, 10, 6);
+    }
+    if (sp === 'beaver') { K.box(L(-1.3, hy - 8.4, 17), r, K.Y, f, 1.2, 1.8, 0.6, pc('#ffffff')); K.box(L(1.3, hy - 8.4, 17), r, K.Y, f, 1.2, 1.8, 0.6, pc('#ffffff')); }
+    const mouth = pc('#6a2a2e'), mz = muzzle ? 17.2 : (sp === 'frog' ? 15.6 : 16.6), my = muzzle ? hy - 8.6 : (sp === 'frog' ? hy - 4 : hy - 8);
+    const mw = sp === 'frog' ? 9 : 3.4;
+    if (s === 'bicara' || s === 'idle') K.ellip(L(0, my - 0.6, mz - 0.6), r, K.Y, f, s === 'idle' ? 3.6 : 2.8, 2.6, 1.5, pc('#c2455a'), 10, 6);
+    else if (worried) K.ellip(L(0, my - 0.4, mz - 0.5), r, K.Y, f, 1.7, 1.7, 1.1, mouth, 8, 6);
+    else { const pts = []; for (let i = 0; i <= 6; i++) { const t = -1 + i / 3; pts.push(L(mw * t, my + 1.5 * t * t, mz - 1.0 * t * t * (sp === 'frog' ? 3 : 1))); } for (let i = 0; i < 6; i++) K.tube(pts[i], pts[i + 1], 0.7, mouth, 6, false); }
+    if (sp === 'cat' || sp === 'fox') [-1, 1].forEach((sx) => [-1, 0, 1].forEach((k) => K.tube(L(sx * 6, hy - 5 + k * 1.6, 16.5), L(sx * 15, hy - 4.5 + k * 3, 15), 0.3, pc('#3a3036'), 4, false)));
+    // --- eyes ---
+    if (eyeStyle !== 'none') [-6.2, 6.2].forEach((x) => {
+      if (eyeStyle === 'ring') { K.ellip(L(x, hy + 0.3, eyeZ + 0.2), r, K.Y, f, 2.9, 3.3, 1.8, pc('#ffffff'), 10, 6); K.ellip(L(x, hy + 0.1, eyeZ + 1.6), r, K.Y, f, 2.0, 2.5, 1.2, dark, 10, 6); }
+      else K.ellip(L(x, hy + 0.5, eyeZ), r, K.Y, f, 2.9, 3.5, 2.0, dark, 10, 7);
+      K.sph(L(x - 0.9, hy + 1.8, eyeZ + 1.9), 0.9, C('#ffffff', 2), 6, 4);
+      if (worried) { const t = x < 0 ? 0.4 : -0.4; K.box(L(x, hy + 6.3, eyeZ + 0.4), K.add(K.mul(r, Math.cos(t)), K.mul(K.Y, Math.sin(t))), K.sub(K.mul(K.Y, Math.cos(t)), K.mul(r, Math.sin(t))), f, 2.8, 0.7, 0.8, pc('#3a3036')); }
+    });
+    if (sp !== 'frog') [-11, 11].forEach((x) => K.ellip(L(x, hy - 5, 11.6), r, K.Y, f, 3.2, 2, 1.4, pink, 10, 6));
+    if (worried) K.ellip(L(15.5, hy + 4, 8), r, K.Y, f, 1.8, 2.8, 1.8, C('#7cc7f0'), 8, 6);
+    // --- accessories ---
+    if (a.glasses) { [-6.5, 6.5].forEach((x) => K.arc(L(x, hy + 0.5, eyeZ + 3), r, K.Y, 5, 0, Math.PI * 2, 0.6, pc('#1d1d22'), 16)); K.tube(L(-1.5, hy + 1, eyeZ + 3.2), L(1.5, hy + 1, eyeZ + 3.2), 0.6, pc('#1d1d22'), 6, false); }
+    if (a.phones) { K.arc(L(0, hy + 2, -1), r, K.Y, 19.5, 0, Math.PI, 1.8, pc('#2b2e35'), 16); [-19.2, 19.2].forEach((x) => K.ellip(L(x, hy - 1, -1), r, K.Y, f, 3.6, 6.5, 6.5, pc(a.phones), 12, 8)); }
+    if (a.beret) { K.ellip(L(-3, hy + 14, -3), r, K.Y, f, 13, 4, 13, pc('#d64545'), 16, 8); K.sph(L(-3, hy + 18, -3), 1.6, pc('#d64545'), 6, 4); }
+    if (a.cap) { K.ellip(L(0, hy + 10, -1), r, K.Y, f, 17.6, 8.5, 17.6, pc(a.cap), 18, 8); K.box(L(0, hy + 9, a.walker ? 19 : -19), r, K.Y, f, 9, 0.8, 6, pc(a.cap)); }
+  }
+
+  tail(K, L, a, pc, y0, standing) {
+    const fur = pc(a.skin), acc = pc(a.acc), muz = pc(a.muz), sp = a.animal;
+    const pts = standing ? [[0, y0, -11], [3, y0 - 8, -20], [8, y0 - 20, -24], [10, y0 - 32, -20]] : [[0, y0, -12], [14, y0 - 3, -16], [25, y0 - 11, -14], [29, y0 - 23, -9]];
+    const chain = (col, rr) => { for (let i = 0; i < pts.length - 1; i++) K.tube(L(pts[i][0], pts[i][1], pts[i][2]), L(pts[i + 1][0], pts[i + 1][1], pts[i + 1][2]), rr, col, 8, true); };
+    const end = pts[pts.length - 1], mid = pts[2];
+    if (sp === 'cat' || sp === 'monkey') { chain(fur, 2.4); if (sp === 'monkey') K.arc(L(end[0], end[1] - 3, end[2]), K.X, K.Y, 3.5, 0, Math.PI * 1.6, 2.2, fur, 8); }
+    else if (sp === 'lion') { chain(fur, 2.2); K.sph(L(end[0], end[1], end[2]), 4.5, acc, 10, 7); }
+    else if (sp === 'wolf') { K.ellip(L(mid[0], mid[1], mid[2]), K.X, K.Y, K.Z, 6.5, 13, 6.5, fur, 12, 8); K.sph(L(end[0], end[1] + 2, end[2]), 4.6, muz, 10, 7); }
+    else if (sp === 'beaver') K.ellip(L(mid[0], mid[1], mid[2]), K.X, K.Y, K.Z, 9, 14, 2.5, acc, 12, 8);
+    else if (sp === 'sheep') K.sph(L(0, y0, standing ? -12 : -15), 6, acc, 10, 7);
+    else if (sp === 'elephant') { chain(fur, 1.4); K.sph(L(end[0], end[1], end[2]), 2.6, pc('#4a4d55'), 8, 6); }
+    else if (sp === 'fox') { K.ellip(L(mid[0], mid[1], mid[2]), K.X, K.Y, K.Z, 7, 13, 7, fur, 12, 8); K.sph(L(end[0], end[1] + 2, end[2]), 5, muz, 10, 7); }
+    else if (sp === 'raccoon') { for (let i = 0; i < pts.length - 1; i++) K.tube(L(pts[i][0], pts[i][1], pts[i][2]), L(pts[i + 1][0], pts[i + 1][1], pts[i + 1][2]), 4.6, i % 2 ? acc : fur, 10, true); }
+    else if (sp === 'dog') { K.tube(L(pts[0][0], pts[0][1], pts[0][2]), L(pts[1][0], pts[1][1] + 10, pts[1][2]), 2.6, fur, 8, true); }
+    else if (sp === 'rabbit' || sp === 'bear' || sp === 'panda' || sp === 'hamster') K.sph(L(0, y0, standing ? -12 : -14), sp === 'rabbit' ? 5.5 : 3.5, sp === 'panda' ? acc : (sp === 'rabbit' ? pc('#ffffff') : fur), 10, 7);
+  }
+
+  head(K, L, r, f, hy, a, s, pc) {
+    if (a.animal) { this.animalHead(K, L, r, f, hy, a, s, pc); return; }
+    const C = K.col, skin = pc(a.skin), hair = pc(a.hair), dark = pc('#2a1f1a');
+    K.ellip(L(0, hy, 0), r, K.Y, f, 17, 16, 16, skin, 18, 12);
+    K.ellip(L(0, hy + 5, -2.5), r, K.Y, f, 17.8, 13.5, 17, hair, 18, 10);
+    if (a.longHair) K.ellip(L(0, hy - 8, -9), r, K.Y, f, 17, 18, 9, hair, 16, 10);
+    if (a.bun) K.sph(L(0, hy + 18, -7), 7.5, hair, 12, 8);
+    if (a.pony) K.ellip(L(0, hy - 4, -19), r, K.Y, f, 5.5, 12, 5.5, hair, 10, 8);
+    if (a.spiky) [[-7, 0], [0, -4], [7, 0], [-3, 5], [4, 5]].forEach(([x, z]) => K.ellip(L(x, hy + 15, z), r, K.Y, f, 5, 7, 5, hair, 10, 6));
+    if (a.beard) K.ellip(L(0, hy - 11, 9), r, K.Y, f, 10, 5.5, 6, hair, 12, 8);
+    const worried = s === 'macet';
+    [-6, 6].forEach((x) => {
+      K.ellip(L(x, hy - 2, 15.2), r, K.Y, f, 3.4, 4, 2.2, pc('#ffffff'), 12, 8);
+      K.sph(L(x, hy - 2.4, 16.6), 2.1, dark, 10, 7);
+      K.sph(L(x - 0.8, hy - 1.3, 18.4), 0.75, C('#ffffff', 2), 6, 4);
+      const t = worried ? (x < 0 ? 0.35 : -0.35) : 0;
+      const R2 = K.add(K.mul(r, Math.cos(t)), K.mul(K.Y, Math.sin(t))), U2 = K.sub(K.mul(K.Y, Math.cos(t)), K.mul(r, Math.sin(t)));
+      K.box(L(x, hy + 4.5, 15.6), R2, U2, f, 2.8, 0.7, 0.8, hair);
+    });
+    [-10.5, 10.5].forEach((x) => K.ellip(L(x, hy - 7, 11), r, K.Y, f, 3.2, 2, 1.4, pc('#f4a3a3'), 10, 6));
+    K.ellip(L(0, hy - 5, 15.8), r, K.Y, f, 1.8, 1.6, 1.4, pc(K.mix(a.skin, '#8a4a30', 0.15)), 8, 6);
+    const mouth = pc('#7a2e2e');
+    if (s === 'bicara') K.ellip(L(0, hy - 9, 13.8), r, K.Y, f, 3, 2.6, 1.6, mouth, 10, 6);
+    else if (worried) {
+      K.ellip(L(0, hy - 9.5, 13.6), r, K.Y, f, 1.8, 1.8, 1.2, mouth, 8, 6);
+      K.ellip(L(15, hy + 3, 8), r, K.Y, f, 1.8, 2.8, 1.8, C('#7cc7f0'), 8, 6);
+    } else {
+      const pts = [];
+      for (let i = 0; i <= 6; i++) { const t = -1 + i / 3; pts.push(L(4.2 * t, hy - 9.4 + 1.8 * t * t, 13.7 - 0.9 * t * t)); }
+      for (let i = 0; i < 6; i++) K.tube(pts[i], pts[i + 1], 0.75, mouth, 6, false);
+    }
+    if (a.glasses) {
+      [-6, 6].forEach((x) => K.arc(L(x, hy - 2, 18.2), r, K.Y, 4.6, 0, Math.PI * 2, 0.6, pc('#1d1d22'), 16));
+      K.tube(L(-1.4, hy - 1.5, 18.4), L(1.4, hy - 1.5, 18.4), 0.6, pc('#1d1d22'), 6, false);
+    }
+    if (a.phones) {
+      K.arc(L(0, hy + 2, -1), r, K.Y, 18.8, 0, Math.PI, 1.8, pc('#2b2e35'), 16);
+      [-18.6, 18.6].forEach((x) => K.ellip(L(x, hy - 1, -1), r, K.Y, f, 3.6, 6.5, 6.5, pc(a.phones), 12, 8));
+    }
+    if (a.beret) { K.ellip(L(2, hy + 14, -2), r, K.Y, f, 17.5, 4.5, 17.5, pc('#d64545'), 18, 8); K.sph(L(2, hy + 18.5, -2), 1.6, pc('#d64545'), 6, 4); }
+    if (a.cap) { K.ellip(L(0, hy + 10, -1), r, K.Y, f, 17.8, 8.5, 17.8, pc(a.cap), 18, 8); K.box(L(0, hy + 9, a.walker ? 19 : -19), r, K.Y, f, 9, 0.8, 6, pc(a.cap)); }
+  }
+
+  sitBody(K, L, r, f, a, s, pc, yo, hold) {
+    const shirt = pc(a.shirt), pants = pc(a.pants), skin = pc(a.skin), shoe = pc(a.shoe || '#2b2e35');
+    K.ellip(L(0, 52 + yo, -3), r, K.Y, f, 16, 8, 13, pants, 14, 8);
+    [-8, 8].forEach((x) => {
+      K.tube(L(x, 51 + yo, 0), L(x * 1.1, 50 + yo, 30), 8, pants, 10);
+      K.tube(L(x * 1.1, 48 + yo, 31), L(x * 1.1, 8, 35), 6.5, pants, 10);
+      K.ellip(L(x * 1.1, 5, 40), r, K.Y, f, 6.5, 5, 10, shoe, 10, 6);
+    });
+    K.ellip(L(0, 72 + yo, -3), r, K.Y, f, 17, 20, 13, shirt, 18, 10);
+    if (a.hood) K.ellip(L(0, 91 + yo, -12), r, K.Y, f, 14, 8, 8, pc(K.mix(a.shirt, '#000000', 0.2)), 12, 8);
+    if (a.tie) { K.box(L(0, 77 + yo, 10.4), r, K.Y, f, 2.4, 9, 0.8, pc('#c0392b')); K.sph(L(0, 86.5 + yo, 9.8), 2.3, pc('#c0392b'), 8, 6); K.box(L(0, 89.5 + yo, 7.8), r, K.Y, f, 6, 1.8, 2, pc('#f2f0ea')); }
+    [-1, 1].forEach((sx) => {
+      K.tube(L(sx * 17, 86 + yo, -3), L(sx * 20, 71 + yo, 8), 5.5, shirt, 10);
+      if (hold === 'pad') { K.tube(L(sx * 20, 71 + yo, 8), L(sx * 8, 70 + yo, 24), 5, shirt, 10); K.sph(L(sx * 7, 70 + yo, 27), 5.3, skin, 12, 8); }
+      else { K.tube(L(sx * 20, 71 + yo, 8), L(sx * 14, 77 + yo, 28), 5, shirt, 10); K.sph(L(sx * 13, 77.5 + yo, 32), 5.3, skin, 12, 8); }
+    });
+    if (hold === 'pad') { K.box(L(0, 71 + yo, 28), r, K.Y, f, 9, 2, 4, pc('#2a2d33')); K.sph(L(-5, 73.5 + yo, 28), 1.4, pc('#ef6a3c'), 6, 4); K.sph(L(5, 73.5 + yo, 28), 1.4, pc('#35b87a'), 6, 4); }
+    if (hold === 'cup') K.cyl(L(13, 0, 34)[0], 79 + yo, L(13, 0, 34)[2], 4, 4, 4.5, 4.5, 9, pc('#f2f0ea'), 14);
+    if (a.animal) this.tail(K, L, a, pc, 52 + yo, false);
+    this.head(K, L, r, f, 110 + yo, a, s, pc);
+  }
+
+  standBody(K, L, r, f, a, s, pc, hold) {
+    const shirt = pc(a.shirt), pants = pc(a.pants), skin = pc(a.skin), shoe = pc(a.shoe || '#2b2e35');
+    K.ellip(L(0, 62, -1), r, K.Y, f, 15, 8, 11, pants, 14, 8);
+    [-8, 8].forEach((x) => { K.tube(L(x, 60, 0), L(x, 9, 1), 7, pants, 10); K.ellip(L(x, 5, 5), r, K.Y, f, 6.5, 5, 10, shoe, 10, 6); });
+    K.ellip(L(0, 82, -1), r, K.Y, f, 17, 21, 12, shirt, 18, 10);
+    if (a.hood) K.ellip(L(0, 101, -11), r, K.Y, f, 14, 8, 8, pc(K.mix(a.shirt, '#000000', 0.2)), 12, 8);
+    if (a.tie) { K.box(L(0, 87, 10.8), r, K.Y, f, 2.4, 9, 0.8, pc('#c0392b')); K.sph(L(0, 96.5, 10), 2.3, pc('#c0392b'), 8, 6); }
+    const arm = (sx, el, hd) => { K.tube(L(sx * 17, 96, -1), el, 5.5, shirt, 10); K.tube(el, hd, 5, shirt, 10); K.sph(hd, 5.3, skin, 12, 8); };
+    if (hold === 'paddle') {
+      arm(-1, L(-20, 80, 4), L(-21, 70, 6));
+      arm(1, L(24, 84, 14), L(22, 92, 30));
+      K.tube(L(22, 92, 32), L(22, 96, 36), 1.4, pc('#6b4429'), 6, false);
+      K.ellip(L(22, 103, 38), r, K.Y, f, 8, 9, 1.2, pc('#d94040'), 14, 4);
+    } else if (hold === 'rod') {
+      [-1, 1].forEach((sx) => arm(sx, L(sx * 20, 84, 12), L(sx * 22, 80, 30)));
+    } else if (hold === 'joy') {
+      [-1, 1].forEach((sx) => arm(sx, L(sx * 19, 88, 14), L(sx * 10, 99, 30)));
+    } else {
+      [-1, 1].forEach((sx) => arm(sx, L(sx * 20, 80, 4), L(sx * 21, 70, 6)));
+    }
+    if (a.animal) this.tail(K, L, a, pc, 62, true);
+    this.head(K, L, r, f, 118, a, s, pc);
+  }
+
+  seated(K, a, s, pc, sel, m, dim) {
+    const C = K.col, yaw = a.seat[2], f = [Math.sin(yaw), 0, Math.cos(yaw)], r = [Math.cos(yaw), 0, -Math.sin(yaw)];
+    const L = (lx, ly, lz) => this.L(a, lx, ly, lz);
+    const away = s === 'idle';
+    K.use('ppl');
+    const ch = pc('#2b2e35'), metal = pc('#6b707b');
+    K.box(L(0, 44, -2), r, K.Y, f, 24, 3.5, 23, ch);
+    K.box(L(0, 82, -27), r, K.Y, f, 22, 24, 2.6, ch);
+    K.box(L(0, 54, -26), r, K.Y, f, 3, 8, 2, metal);
+    K.tube(L(0, 7, -2), L(0, 41, -2), 2.4, metal, 10, false);
+    for (let i = 0; i < 5; i++) { const t = i / 5 * 6.283 + 0.3; const e = L(Math.cos(t) * 28, 3, -2 + Math.sin(t) * 28); K.tube(L(0, 6, -2), e, 2, ch, 8, false); K.sph(e, 2.8, ch, 8, 5); }
+    [-25, 25].forEach((x) => { K.box(L(x, 62, -2), r, K.Y, f, 2.6, 1.6, 12, ch); K.tube(L(x, 46, -8), L(x, 61, -8), 1.6, metal, 8, false); });
+    if (!away) this.sitBody(K, L, r, f, a, s, pc, 0, 'desk');
+    const scr = away ? pc('#2a2f3a') : pc(m.scr, dim ? 1 : 2);
+    if (!a.desk) {
+      K.box(L(0, 76.2, 50), r, K.Y, f, 16, 0.8, 11, pc('#c3c7cf'), { py: pc('#9aa0aa') });
+      const tilt = 0.26, U2 = K.add(K.mul(K.Y, Math.cos(tilt)), K.mul(f, Math.sin(tilt))), F2 = K.sub(K.mul(f, Math.cos(tilt)), K.mul(K.Y, Math.sin(tilt)));
+      K.box(K.add(L(0, 77, 61), K.mul(U2, 11)), r, U2, F2, 16, 11, 0.6, pc('#c3c7cf'), { nz: scr });
+      const cp = L(27, 0, 40); K.cyl(cp[0], 75.5, cp[2], 4, 4, 4.5, 4.5, 9, pc('#f2f0ea'), 14);
+    } else {
+      (a.desk === 2 ? [-29, 29] : [0]).forEach((mx) => {
+        K.tube(L(mx, 75.5, 72), L(mx, 92, 72), 2, pc('#3a3f49'), 8, false);
+        K.box(L(mx, 76, 72), r, K.Y, f, 9, 0.8, 7, pc('#3a3f49'));
+        K.box(L(mx, 106, 71), r, K.Y, f, 28, 16, 1.4, pc('#1b1e24'), { nz: scr });
+      });
+      K.box(L(0, 76, 46), r, K.Y, f, 20, 0.8, 6.5, pc('#2a2d33'));
+    }
+    if (!away) {
+      const c0 = L(0, 0, -2);
+      K.use('pplT');
+      K.disc(c0[0], 1.4, c0[2], 40, 40, C('#000000', 0.3), C('#000000', 0), 32);
+    }
+  }
+
+  playSpots() {
+    const H = Math.PI / 2;
+    return [
+      { k: 'pp1', x: 325, z: 1150, yaw: H, pose: 'stand', hold: 'paddle', act: 'main pingpong', quip: 'Smash! Rasakan ini!' },
+      { k: 'pp2', x: 675, z: 1150, yaw: -H, pose: 'stand', hold: 'paddle', act: 'main pingpong', quip: 'Skor 10–9, ayo!' },
+      { k: 'f1', x: 700, z: 790, yaw: 0, pose: 'stand', hold: 'rod', act: 'main foosball', quip: 'Gooool!!' },
+      { k: 'f2', x: 700, z: 930, yaw: Math.PI, pose: 'stand', hold: 'rod', act: 'main foosball', quip: 'Curang, putar-putar!' },
+      { k: 'a1', x: -250, z: 845, yaw: Math.PI, pose: 'stand', hold: 'joy', act: 'main arcade', quip: 'Rekor baru!' },
+      { k: 'a2', x: -160, z: 845, yaw: Math.PI, pose: 'stand', hold: 'joy', act: 'main arcade', quip: 'Satu nyawa lagi…' },
+      { k: 's1', x: -760, z: 990, yaw: -H, pose: 'sit', yo: 8, hold: 'pad', act: 'main konsol di sofa', quip: 'Satu ronde lagi, deh.' },
+      { k: 's2', x: -760, z: 1110, yaw: -H, pose: 'sit', yo: 8, hold: 'pad', act: 'main konsol di sofa', quip: 'Jangan dekat-dekat bos!' },
+      { k: 'b1', x: 930, z: 960, yaw: -H, pose: 'sit', yo: 26, hold: 'cup', act: 'ngopi di pantry', quip: 'Kopinya enak hari ini.' },
+      { k: 'b2', x: 930, z: 1050, yaw: -H, pose: 'sit', yo: 26, hold: 'cup', act: 'ngopi di pantry', quip: 'Habis ini lanjut kerja.' }
+    ];
+  }
+
+  assignSpots() {
+    const spots = this.playSpots(), out = {};
+    let i = 0;
+    this.AG.forEach((a) => { if (!a.walker && this.eff(a) === 'idle' && i < spots.length) out[a.id] = spots[i++]; });
+    return out;
+  }
+
+  walker(K, a, s, pc, sel, m, dim) {
+    const C = K.col, r = K.X, f = K.Z, L = (x, y, z) => [x, y, z];
+    const shirt = pc(a.shirt), pants = pc(a.pants), skin = pc(a.skin), shoe = pc(a.shoe);
+    K.use('obBody');
+    K.ellip(L(0, 62, -1), r, K.Y, f, 15, 8, 11, pants, 14, 8);
+    K.ellip(L(0, 82, -1), r, K.Y, f, 17, 21, 12, shirt, 18, 10);
+    K.ellip(L(-12, 100, 0), r, K.Y, f, 6, 3, 13, pc('#f2f0ea'), 10, 6);
+    K.box(L(7, 89, 10.6), r, K.Y, f, 3.2, 1.8, 0.4, pc('#ffffff'));
+    if (a.animal) this.tail(K, L, a, pc, 62, true);
+    this.head(K, L, r, f, 118, a, s, pc);
+    [['obLegL', -8], ['obLegR', 8]].forEach(([g, x]) => {
+      K.use(g);
+      K.tube(L(x, 60, 0), L(x, 9, 1), 7, pants, 10);
+      K.ellip(L(x, 5, 5), r, K.Y, f, 6.5, 5, 10, shoe, 10, 6);
+    });
+    K.use('obArmL');
+    K.tube(L(-17, 96, -1), L(-21, 74, 2), 5.5, shirt, 10);
+    K.sph(L(-21, 69, 3), 5.3, skin, 12, 8);
+    K.use('obArmR');
+    K.tube(L(17, 96, -1), L(21, 80, 8), 5.5, shirt, 10);
+    K.tube(L(21, 80, 8), L(18, 74, 20), 5, shirt, 10);
+    K.sph(L(18, 74, 22), 5.3, skin, 12, 8);
+    K.use('obMop');
+    K.tube(L(19, 98, 20), L(24, 6, 52), 1.6, pc('#c9a36a'), 8, true);
+    K.box(L(24, 4, 54), r, K.Y, f, 14, 2, 4, pc('#3a6fb0'));
+    K.ellip(L(24, 2.5, 54), r, K.Y, f, 16, 2.5, 7, pc('#e8e4d8'), 14, 6);
+  }
+
+  buildRings() {
+    const G = { rings: [], obT: [] };
+    const K = this.kit(G), C = K.col;
+    const RING = { kerja: '#35b87a', macet: '#ef6a3c', bicara: '#8b7bff', simak: '#8a90a0', bersih: '#2fb5c9', idle: '#ff7a9c' };
+    this.AG.forEach((a) => {
+      const s = this.eff(a), dim = !this.match(s), sel = this.state.sel === a.id;
+      const col = C(sel ? '#f5b83d' : (dim ? '#6b717d' : RING[s]), sel ? 2 : 1);
+      if (a.walker) {
+        K.use('obT');
+        K.disc(0, 1.4, 0, 34, 34, C('#000000', 0.3), C('#000000', 0), 32);
+        K.ring(0, 1.7, 0, sel ? 30 : 31, sel ? 40 : 35, col, 40);
+      } else {
+        K.use('rings');
+        const sp = this.spots && this.spots[a.id];
+        const c0 = sp ? [sp.x, 0, sp.z] : this.L(a, 0, 0, -2);
+        K.ring(c0[0], 1.6, c0[2], sel ? (sp ? 32 : 40) : (sp ? 33 : 41), sel ? (sp ? 42 : 50) : (sp ? 37 : 45), col, 48);
+      }
+    });
+    return G;
+  }
+
+  buildPeople() {
+    const G = { ppl: [], pplT: [], obBody: [], obLegL: [], obLegR: [], obArmL: [], obArmR: [], obMop: [], ball: [] };
+    const spots = this.assignSpots();
+    this.spots = spots;
+    Object.keys(spots).forEach((id) => { G['i_' + id] = []; });
+    const K = this.kit(G), C = K.col;
+    const ST = {
+      kerja: { ring: '#35b87a', scr: '#8fd8ff' }, macet: { ring: '#ef6a3c', scr: '#ff7a4d' },
+      bicara: { ring: '#8b7bff', scr: '#c4b5ff' }, simak: { ring: '#8a90a0', scr: '#3a4256' }, bersih: { ring: '#2fb5c9', scr: '#8fe3f0' },
+      idle: { ring: '#ff7a9c', scr: '#2a2f3a' }
+    };
+    this.AG.forEach((a) => {
+      const s = this.eff(a), m = ST[s], dim = !this.match(s), sel = false;
+      const pc = (h, al) => C(dim ? K.mix(h, '#5a606c', 0.62) : h, al);
+      if (a.walker) { this.walker(K, a, s, pc, sel, m, dim); return; }
+      this.seated(K, a, s, pc, sel, m, dim);
+      const sp = spots[a.id];
+      if (sp) {
+        K.use('i_' + a.id);
+        const L0 = (x, y, z) => [x, y, z];
+        if (sp.pose === 'sit') this.sitBody(K, L0, K.X, K.Z, a, s, pc, sp.yo, sp.hold); else this.standBody(K, L0, K.X, K.Z, a, s, pc, sp.hold);
+        K.use('pplT');
+        K.disc(sp.x, 1.4, sp.z, 32, 32, C('#000000', 0.28), C('#000000', 0), 28);
+        this.anchors['p:' + a.id] = [sp.x, sp.pose === 'sit' ? 162 + sp.yo : 172, sp.z];
+        this.anchors['h:' + a.id] = [sp.x, sp.pose === 'sit' ? 95 + sp.yo : 100, sp.z];
+      } else {
+        this.anchors['p:' + a.id] = this.L(a, 0, 162, 0);
+        this.anchors['h:' + a.id] = this.L(a, 0, 95, 4);
+      }
+    });
+    if (Object.keys(spots).some((id) => spots[id].hold === 'paddle')) { K.use('ball'); K.sph([0, 0, 0], 2, C('#ffffff', 2), 10, 7); }
+    return G;
+  }
+
+  renderVals() {
+    const S = this.state;
+    const ST = {
+      kerja: { label: 'Bekerja', fill: '#35b87a', bg: 'rgba(53,184,122,.16)', fg: '#7fe0ae' },
+      macet: { label: 'Terblokir', fill: '#ef6a3c', bg: 'rgba(239,106,60,.16)', fg: '#ffa98a' },
+      bicara: { label: 'Memimpin rapat', fill: '#8b7bff', bg: 'rgba(139,123,255,.18)', fg: '#c4b8ff' },
+      simak: { label: 'Menyimak', fill: '#8a90a0', bg: 'rgba(138,144,160,.18)', fg: '#c5c9d3' },
+      bersih: { label: 'Bersih-bersih', fill: '#2fb5c9', bg: 'rgba(47,181,201,.16)', fg: '#8fe3f0' },
+      idle: { label: 'Istirahat · main', fill: '#ff7a9c', bg: 'rgba(255,122,156,.16)', fg: '#ffb3c6' }
+    };
+    const spots = this.assignSpots();
+    const LOGC = { Baca: ['rgba(91,141,239,.18)', '#a9c4ff'], Edit: ['rgba(53,184,122,.18)', '#7fe0ae'], Jalankan: ['rgba(178,141,255,.18)', '#cdb8ff'], Cari: ['rgba(138,144,160,.2)', '#c5c9d3'], Galat: ['rgba(239,106,60,.2)', '#ffa98a'], Rapat: ['rgba(139,123,255,.18)', '#c4b8ff'], Info: ['rgba(138,144,160,.2)', '#c5c9d3'], Hapus: ['rgba(47,181,201,.18)', '#8fe3f0'] };
+    const gb = (v) => v.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' GB';
+    const people = this.AG.map((a) => {
+      const s = this.eff(a), m = ST[s], sel = S.sel === a.id;
+      return { key: 'p:' + a.id, name: a.name, short: a.short, shirt: a.shirt, ini: a.name[0], fill: m.fill,
+        dotAnim: s === 'macet' ? 'blink' : '', selCls: sel ? 'is-sel' : '', pressed: sel ? 'true' : 'false',
+        hasExtra: !!a.walker, extra: a.walker ? S.obAction : '',
+        hasQuip: S.quip === a.id, quip: spots[a.id] ? spots[a.id].quip : a.quip,
+        aria: a.name + ', ' + a.role + ', ' + m.label, pick: () => this.setState({ sel: a.id }) };
+    });
+    const count = (k) => this.AG.filter((a) => { const s = this.eff(a); return k === 'semua' || (k === 'lain' ? (s === 'bicara' || s === 'simak') : k === 'kerja' ? (s === 'kerja' || s === 'bersih') : s === k); }).length;
+    const filters = [
+      { k: 'semua', label: 'Semua', dot: '#f5b83d' }, { k: 'kerja', label: 'Bekerja', dot: '#35b87a' },
+      { k: 'macet', label: 'Terblokir', dot: '#ef6a3c' }, { k: 'lain', label: 'Rapat & menyimak', dot: '#8b7bff' }, { k: 'idle', label: 'Istirahat', dot: '#ff7a9c' }
+    ].map((f) => ({ ...f, count: count(f.k), cls: S.filter === f.k ? 'is-on' : '', pressed: S.filter === f.k ? 'true' : 'false', pick: () => this.setState({ filter: f.k }) }));
+    const a = this.AG.find((x) => x.id === S.sel) || this.AG[0];
+    const s = this.eff(a), m = ST[s];
+    const d = { ...a, species: a.species || '', ini: a.name[0], fill: m.fill, pillBg: m.bg, pillFg: m.fg, statusLabel: m.label, isBlocked: s === 'macet', blockReason: a.block || '', blockHint: a.hint || '',
+      place: spots[a.id] ? 'Ruang santai · ' + spots[a.id].act : (s === 'idle' ? 'Mejanya (semua tempat main penuh)' : a.place),
+      isIdle: s === 'idle', canIdle: !a.walker, idleLabel: s === 'idle' ? 'Kembali bekerja' : 'Istirahat & main',
+      toggleIdle: () => { const now = s === 'idle'; this.setState({ idleMap: { ...S.idleMap, [a.id]: !now } }); this.flash(now ? a.name + ' kembali ke mejanya' : a.name + ' pergi ke ruang santai'); },
+      task: s === 'idle' ? (a.idleTask || 'Istirahat sebentar, sambil ' + (spots[a.id] ? spots[a.id].act : 'santai')) : a.walker ? S.obAction + ' (sudah ' + gb(S.obFreed) + ' dibersihkan hari ini)' : a.task,
+      prog: a.walker ? Math.min(100, Math.round(S.obFreed / 12 * 100)) : a.prog,
+      log: a.log.map(([t, k, dd]) => ({ t, k, d: dd, bg: (LOGC[k] || LOGC.Info)[0], fg: (LOGC[k] || LOGC.Info)[1] })),
+      resolve: () => { this.setState({ resolved: { ...S.resolved, [a.id]: true } }); this.flash('Hambatan ' + a.name + ' ditandai selesai'); } };
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const go = (key) => { const v = this.VIEWS[key]; ['tx', 'ty', 'tz', 'pitch', 'dist'].forEach((k) => { this.goal[k] = v[k]; }); const tw = Math.PI * 2; let y = v.yaw; while (y - this.goal.yaw > Math.PI) y -= tw; while (this.goal.yaw - y > Math.PI) y += tw; this.goal.yaw = y; this.setState({ view: key }); };
+    return {
+      people, filters, d, noGL: S.noGL,
+      roomLabels: [
+        { key: 'r:ceo', label: 'Ruang CEO · Hendra', cls: '', c: '#f5b83d' }, { key: 'r:cto', label: 'Ruang CTO · Rina', cls: '', c: '#f5b83d' },
+        { key: 'r:tv', label: 'Sprint 18 · Review', cls: '', c: '#f5b83d' }, { key: 'r:santai', label: 'Ruang Santai', cls: '', c: '#f5b83d' }
+      ].concat(Object.keys(this.PODS).map((k) => ({ key: 'd:' + k, label: this.PODS[k].label, cls: 'dept', c: this.PODS[k].c }))),
+      views: Object.keys(this.VIEWS).map((k) => ({ label: this.VIEWS[k].label, cls: S.view === k ? 'is-on' : '', pick: () => go(k) })),
+      rotL: () => { this.goal.yaw -= 0.5; this.setState({ view: '' }); },
+      rotR: () => { this.goal.yaw += 0.5; this.setState({ view: '' }); },
+      zoomIn: () => { this.goal.dist = clamp(this.goal.dist * 0.82, 280, 5200); },
+      zoomOut: () => { this.goal.dist = clamp(this.goal.dist * 1.2, 280, 5200); },
+      autoCls: S.auto ? 'is-on' : '', autoPressed: S.auto ? 'true' : 'false',
+      toggleAuto: () => this.setState({ auto: !S.auto, view: '' }),
+      focusSel: () => { const p = this.anchors['h:' + a.id]; this.goal.tx = p[0]; this.goal.ty = 80; this.goal.tz = p[2]; this.goal.dist = 430; this.goal.pitch = 0.42; this.setState({ view: '' }); },
+      stop: (e) => e.stopPropagation(),
+      onDown: (e) => { this._drag = { x: e.clientX, y: e.clientY, yaw: this.goal.yaw, pitch: this.goal.pitch, moved: 0 }; },
+      onMove: (e) => {
+        const g = this._drag; if (!g) return;
+        const dx = e.clientX - g.x, dy = e.clientY - g.y;
+        g.moved = Math.max(g.moved, Math.abs(dx) + Math.abs(dy));
+        if (g.moved < 4) return;
+        this.goal.yaw = this.cam.yaw = g.yaw - dx * 0.006;
+        this.goal.pitch = this.cam.pitch = clamp(g.pitch + dy * 0.005, 0.12, 1.5);
+        this.dirty = true;
+        if (S.view) this.setState({ view: '' });
+      },
+      onUp: (e) => {
+        const g = this._drag; this._drag = null;
+        if (g && g.moved < 4 && this.canvas) { const rc = this.canvas.getBoundingClientRect(); this.pickAt(e.clientX - rc.left, e.clientY - rc.top); }
+      },
+      onLeave: () => { this._drag = null; },
+      onWheel: (e) => { this.goal.dist = clamp(this.goal.dist * (e.deltaY > 0 ? 1.1 : 0.9), 280, 5200); },
+      feed: [
+        { t: '14:32', c: '#2fb5c9', who: 'Udin · Office Boy', what: S.obAction.charAt(0).toLowerCase() + S.obAction.slice(1) },
+        { t: '14:32', c: '#35b87a', who: 'Raka · Tim Engineering', what: 'mengedit src/api/timesheet.ts' },
+        { t: '14:31', c: '#35b87a', who: 'Wulan · PMO', what: 'memperbarui gantt-q4.xlsx dan register risiko' },
+        { t: '14:31', c: '#35b87a', who: 'Dodi · Tim Data', what: 'mengedit dags/timesheet_etl.py' },
+        { t: '14:31', c: '#ef6a3c', who: 'Fajar · Tim Kualitas & Keamanan', what: 'terblokir — CVE kritis di pdf-lib' },
+        { t: '14:31', c: '#ef6a3c', who: 'Yoga · Tim Kualitas & Keamanan', what: 'terblokir — 3 tes regresi gagal' },
+        { t: '14:30', c: '#35b87a', who: 'Agus · Android', what: 'menjalankan ./gradlew assembleDebug' },
+        { t: '14:29', c: '#35b87a', who: 'Nina · iOS', what: 'mengedit DashboardView.swift' },
+        { t: '14:20', c: '#8b7bff', who: 'Ayu · Tim Produk', what: 'memimpin stand-up di meja Produk' },
+        { t: '14:18', c: '#ff7a9c', who: 'Laras & Agus', what: 'sedang idle, main pingpong di ruang santai' }
+      ],
+      toast: S.toast, hasToast: !!S.toast,
+      openSession: () => this.flash('Membuka transkrip sesi ' + a.name + '… (mockup)'),
+      pingAgent: () => this.flash('Pesan terkirim ke ' + a.name + ' (mockup)')
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,8 +1,8 @@
 import type { Status } from '../../../src/shared/types.js';
-import { seated, sitBody, standBody, painter, walker, type Look } from './characters.js';
+import { seated, sitBody, sleepBody, standBody, painter, walker, type Look } from './characters.js';
 import { col, Kit, type Groups } from './kit.js';
-import { PLAY_SPOTS, type PlaySpot, type SeatXYZ } from './layout.js';
-import { seatPoint, type Vec3 } from './math.js';
+import { bedFeet, bedFoot, bedYaw, PLAY_SPOTS, SLEEP_STYLE, type Bed, type PlaySpot, type SeatXYZ } from './layout.js';
+import { m4, Ry, seatPoint, T, type Vec3 } from './math.js';
 
 export interface SceneAgent extends Look {
   id: string;
@@ -34,9 +34,17 @@ export function assignSpots(agents: SceneAgent[]): Map<string, PlaySpot> {
 
 export type Anchors = Record<string, Vec3>;
 
-/** Label (p:) and pick (h:) anchors for every non-walker agent. */
-export function agentAnchors(agents: SceneAgent[], spots: Map<string, PlaySpot>, out: Anchors): void {
+const NO_BEDS: ReadonlyMap<string, Bed> = new Map();
+
+/** Label (p:) and pick (h:) anchors for every non-walker agent, and for anyone asleep in a bed. */
+export function agentAnchors(agents: SceneAgent[], spots: Map<string, PlaySpot>, out: Anchors, beds: ReadonlyMap<string, Bed> = NO_BEDS): void {
   for (const a of agents) {
+    const bed = beds.get(a.id);
+    if (bed) {
+      out['p:' + a.id] = [bed.x - bed.dir * 26, 118, bed.z];
+      out['h:' + a.id] = [bed.x - bed.dir * 80, 70, bed.z];
+      continue;
+    }
     if (a.walker) continue;
     const sp = spots.get(a.id);
     if (sp) {
@@ -72,17 +80,18 @@ export class PeopleBuilder {
   private cache = new Map<string, CacheEntry>();
 
   /** `walking`: agents moving between desk and lounge (empty chair, body drawn by the renderer). */
-  build(agents: SceneAgent[], spots: Map<string, PlaySpot>, walking: ReadonlySet<string> = new Set()): PackedGroups {
+  build(agents: SceneAgent[], spots: Map<string, PlaySpot>, walking: ReadonlySet<string> = new Set(), beds: ReadonlyMap<string, Bed> = NO_BEDS): PackedGroups {
     const parts: Record<string, Float32Array[]> = {};
     const seen = new Set<string>();
     for (const a of agents) {
       seen.add(a.id);
       const walk = walking.has(a.id);
       const sp = walk ? undefined : spots.get(a.id);
-      const sig = JSON.stringify([a, sp?.k, walk]);
+      const bed = walk ? undefined : beds.get(a.id);
+      const sig = JSON.stringify([a, sp?.k, walk, bed?.k, beds.has(a.id)]);
       let entry = this.cache.get(a.id);
       if (!entry || entry.sig !== sig) {
-        entry = { sig, groups: pack(this.buildOne(a, sp, walk)) };
+        entry = { sig, groups: pack(this.buildOne(a, sp, walk, bed, beds.has(a.id))) };
         this.cache.set(a.id, entry);
       }
       for (const [k, arr] of Object.entries(entry.groups)) {
@@ -111,15 +120,23 @@ export class PeopleBuilder {
     return out;
   }
 
-  private buildOne(a: SceneAgent, sp: PlaySpot | undefined, walking: boolean): Groups {
+  /** `bed`: asleep there; `toBed`: has a bed (asleep or walking to it), so the desk is empty. */
+  private buildOne(a: SceneAgent, sp: PlaySpot | undefined, walking: boolean, bed?: Bed, toBed = false): Groups {
     const G: Groups = { ppl: [] };
     const K = new Kit(G);
     const pc = painter(a.dim);
+    if (bed) {
+      if (a.seat) seated(K, a, a.seat, a.monitors, a.status, pc, a.dim, true, SCREEN.idle);
+      K.use('ppl');
+      const [fx, fz] = bedFeet(bed);
+      sleepBody(K, a, pc, m4(T(fx, 0, fz), Ry(bedYaw(bed))));
+      return G;
+    }
     if (a.walker) {
       walker(K, a, a.status, pc);
       return G;
     }
-    if (a.seat) seated(K, a, a.seat, a.monitors, a.status, pc, a.dim, !!sp || walking, SCREEN[a.status]);
+    if (a.seat) seated(K, a, a.seat, a.monitors, a.status, pc, a.dim, !!sp || walking || toBed, SCREEN[toBed ? 'idle' : a.status]);
     if (walking) {
       // Walking body at the origin; the renderer moves it along the route.
       K.use('w');
@@ -139,12 +156,24 @@ export class PeopleBuilder {
   }
 }
 
-export function buildRings(agents: SceneAgent[], spots: Map<string, PlaySpot>, selected: string | null, walking: ReadonlySet<string> = new Set()): Groups {
+export function buildRings(
+  agents: SceneAgent[], spots: Map<string, PlaySpot>, selected: string | null,
+  walking: ReadonlySet<string> = new Set(), beds: ReadonlyMap<string, Bed> = NO_BEDS,
+): Groups {
   const G: Groups = { rings: [], obT: [] };
   const K = new Kit(G);
   for (const a of agents) {
     const sel = selected === a.id;
     const c = col(sel ? '#f5b83d' : a.dim ? '#6b717d' : RING[a.status], sel ? 2 : 1);
+    const bed = beds.get(a.id);
+    if (bed) {
+      if (walking.has(a.id)) continue;
+      // Asleep: ring on the floor at the foot of the bed, in the sleep colour.
+      const [x, z] = bedFoot(bed);
+      K.use('rings');
+      K.ring(x, 1.6, z, sel ? 32 : 33, sel ? 42 : 37, sel || a.dim ? c : col(SLEEP_STYLE.fill), 48);
+      continue;
+    }
     if (a.walker) {
       K.use('obT');
       K.disc(0, 1.4, 0, 34, 34, col('#000000', 0.3), col('#000000', 0), 32);

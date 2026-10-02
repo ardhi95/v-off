@@ -78,12 +78,17 @@ Variabel lingkungan: `V_OFF_PORT` (default 4747), `V_OFF_HOST` (default 127.0.0.
   menjalankan `~/.v-off/hook.mjs` (ditandai `--v-off-hook`). Format hooks mengikuti
   https://code.claude.com/docs/en/hooks; periksa ulang saat Claude Code berubah. `cli.ts`: `start`/`setup`.
 - `src/server/store.ts`: state di memori, feed, token/biaya, laporan. `http.ts`: REST + SSE (SPEC §9), plus UI statis.
+  Kantor off (SPEC §6.1): `matchUsageLimit` di `summarize.ts` mengenali pesan limit; `Store.trackLimit` memegang
+  `LimitState` (dicek sebelum dedupe hook/transkrip karena teks limit sering hanya ada di transkrip).
 - `web/src/office/`: renderer WebGL hasil port dari `Main.dc.html` (opsi b). `kit.ts` (geometri),
   `staticScene.ts` (lantai & furnitur), `characters.ts` (hewan & ekspresi), `people.ts` (kursi, tempat main,
   cache geometri per agent), `camera.ts` (orbit & preset), `renderer.ts` (loop, office boy, label).
 - `web/src/OfficeStage.tsx`: kanvas, label nama, kontrol kamera. `api.ts`: `/api/state` + SSE. `actions.ts`: aksi REST.
 - `web/src/AgentPanel.tsx`, `FilterBar.tsx`, `ActivityFeed.tsx`, `SessionDialog.tsx`: interaksi (Fase 3).
   `present.ts`: helper murni (filter, format angka, teks feed, lokasi) yang dites.
+- Asrama: `layout.ts` (`DORM`, `BEDS`, `assignBeds`, rute `exitChain` untuk kasur), `staticScene.ts` (`buildDorm`,
+  pintu di dinding kiri, grup `dormW`/`dormOn`/`dormOff`), `characters.ts` (`sleepBody`: badan berdiri yang
+  direbahkan), `people.ts` (tidur, label, cincin di kaki kasur). `App.tsx` membagi kasur saat `state.limit` ada.
 - `web/src/office/behavior.ts` (Fase 4): tempat main yang "lengket" dengan prioritas, stop office boy dari
   hasil pindai cache, pemilihan celetukan. Rute jalan meja <-> ruang santai ada di `layout.ts` (`route`).
 - `web/src/ReportPage.tsx` (Fase 5): halaman `/laporan`. `reportModel.ts` (view model murni, dites),

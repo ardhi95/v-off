@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AgentEvent, AgentWithRuntime, CleanerState, Department } from '../../src/shared/types.js';
 import { api } from './actions.js';
-import { SPECIES, STATUS_STYLE, type PlaySpot } from './office/layout.js';
+import { SLEEP_STYLE, SPECIES, STATUS_STYLE, type PlaySpot } from './office/layout.js';
 import { formatBytes, formatCost, formatDuration, formatTime, formatTokens, inkOn, locationOf, logKind, mergeLog } from './present.js';
 
 interface Props {
@@ -9,6 +9,8 @@ interface Props {
   departments: Department[];
   events: AgentEvent[];
   spot?: PlaySpot;
+  /** Asleep in the dorm: the usage limit ran out and the office is off. */
+  asleep?: boolean;
   cleaner: CleanerState;
   cleanerAction: string;
   now: number;
@@ -18,11 +20,11 @@ interface Props {
   onMessage: (sessionId: string) => void;
 }
 
-export function AgentPanel({ agent: a, departments, events, spot, cleaner, cleanerAction, now, onToast, onFocus, onOpenSession, onMessage }: Props) {
+export function AgentPanel({ agent: a, departments, events, spot, asleep = false, cleaner, cleanerAction, now, onToast, onFocus, onOpenSession, onMessage }: Props) {
   const [fetched, setFetched] = useState<AgentEvent[]>([]);
   const [busy, setBusy] = useState(false);
   const rt = a.runtime;
-  const st = STATUS_STYLE[rt.status];
+  const st = asleep ? SLEEP_STYLE : STATUS_STYLE[rt.status];
   const dept = departments.find((d) => d.id === a.dept)?.label ?? a.dept;
 
   useEffect(() => {
@@ -49,7 +51,9 @@ export function AgentPanel({ agent: a, departments, events, spot, cleaner, clean
   };
 
   let task: string;
-  if (a.walker) {
+  if (asleep) {
+    task = 'Tidur di Asrama. Limit pemakaian habis, jadi kantor off sampai limit pulih.';
+  } else if (a.walker) {
     task = `${cleanerAction} (dry-run: ${cleaner.lastScanAt ? `${formatBytes(cleaner.totalBytes)} bisa dibersihkan` : 'belum dipindai'})`;
   } else if (rt.status === 'idle') {
     task = rt.manualIdle
@@ -79,7 +83,7 @@ export function AgentPanel({ agent: a, departments, events, spot, cleaner, clean
       <div className="agent-body">
         <div className="location">
           <span className="dot" style={{ background: '#f5b83d' }} aria-hidden="true" />
-          Lokasi: <strong>{locationOf(a, departments, spot)}</strong>
+          Lokasi: <strong>{locationOf(a, departments, spot, asleep)}</strong>
         </div>
 
         {rt.status === 'macet' && (
@@ -96,7 +100,7 @@ export function AgentPanel({ agent: a, departments, events, spot, cleaner, clean
         )}
 
         <div>
-          <h3 className="label">{rt.status === 'kerja' || rt.status === 'macet' ? 'Aksi terakhir' : 'Tugas saat ini'}</h3>
+          <h3 className="label">{!asleep && (rt.status === 'kerja' || rt.status === 'macet') ? 'Aksi terakhir' : 'Tugas saat ini'}</h3>
           <p className="task">{task}</p>
           <span className="mono muted small">repo: {rt.repo ?? '—'}{rt.gitBranch ? ` · ${rt.gitBranch}` : ''}</span>
         </div>
@@ -164,7 +168,9 @@ export function AgentPanel({ agent: a, departments, events, spot, cleaner, clean
             Kirim pesan
           </button>
           <button type="button" className="btn btn-outline" onClick={onFocus}>Arahkan kamera</button>
-          {!a.walker && (rt.manualIdle ? (
+          {asleep ? (
+            <span className="muted small idle-note">Bangun otomatis saat limit pulih.</span>
+          ) : !a.walker && (rt.manualIdle ? (
             <button type="button" className="btn btn-pink" disabled={busy} onClick={() => run(() => api.setIdle(a.id, false), `${a.name} kembali ke mejanya`)}>
               Kembali bekerja
             </button>

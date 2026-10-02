@@ -142,7 +142,7 @@ describe('camera', () => {
 });
 
 describe('SSE state updates', () => {
-  const snap: StateSnapshot = { agents: withStatus(() => 'idle'), departments: config.departments, events: [], cleaner: { mode: 'dry-run', items: [], totalBytes: 0, lastScanAt: null }, ambience: config.ambience };
+  const snap: StateSnapshot = { agents: withStatus(() => 'idle'), departments: config.departments, events: [], cleaner: { mode: 'dry-run', items: [], totalBytes: 0, lastScanAt: null }, ambience: config.ambience, limit: null };
 
   it('replaces or appends agents', () => {
     const raka = { ...snap.agents.find((a) => a.id === 'raka')!, runtime: runtime('kerja') };

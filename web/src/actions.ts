@@ -16,6 +16,7 @@ export const api = {
   setIdle: (id: string, idle: boolean) => call<{ ok: true }>('POST', `/api/agents/${encodeURIComponent(id)}/idle`, { idle }),
   log: (id: string) => call<AgentEvent[]>('GET', `/api/agents/${encodeURIComponent(id)}/log`),
   session: (id: string) => call<SessionSummary>('GET', `/api/sessions/${encodeURIComponent(id)}`),
+  openOffice: () => call<{ ok: true }>('POST', '/api/limit/clear', {}),
 };
 
 /** Copy text; returns false when the clipboard is unavailable (e.g. not a secure context). */

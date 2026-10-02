@@ -1,12 +1,15 @@
 import type { Species, Status } from '../../../src/shared/types.js';
-import { col, Kit, mix, type RGBA } from './kit.js';
+import { col, Kit, mix, type Groups, type RGBA } from './kit.js';
 import type { Hold, SeatXYZ } from './layout.js';
-import { seatPoint, type Vec3 } from './math.js';
+import { m4, Rx, seatPoint, T, type Mat4, type Vec3 } from './math.js';
 
 // Animal characters, ported from animalHead(), tail(), sitBody(), standBody(),
 // seated() and walker() in design/mockup/Main.dc.html. Expressions per status:
 // macet = worried brows + small "o" mouth + sweat drop, bicara/idle = open
-// mouth, others = smile.
+// mouth, tidur (asleep in the dorm) = closed eyes, others = smile.
+
+/** Face to draw: an agent status, or asleep while the office is off. */
+export type Face = Status | 'tidur';
 
 export interface Look {
   animal: Species;
@@ -32,7 +35,7 @@ export function painter(dim: boolean): Paint {
   return (h, a) => col(dim ? mix(h, '#5a606c', 0.62) : h, a);
 }
 
-function animalHead(K: Kit, L: Local, r: Vec3, f: Vec3, hy: number, a: Look, s: Status, pc: Paint): void {
+function animalHead(K: Kit, L: Local, r: Vec3, f: Vec3, hy: number, a: Look, s: Face, pc: Paint): void {
   const fur = pc(a.skin), acc = pc(a.acc), muz = pc(a.muz), dark = pc('#26222a'), pink = pc('#f4a3b4');
   const sp = a.animal, worried = s === 'macet';
   const W = sp === 'frog' ? 19 : 17, Hh = sp === 'frog' ? 14 : 16;
@@ -168,6 +171,12 @@ function animalHead(K: Kit, L: Local, r: Vec3, f: Vec3, hy: number, a: Look, s: 
   // eyes
   if (eyeStyle !== 'none') {
     for (const x of [-6.2, 6.2]) {
+      if (s === 'tidur') {
+        // Closed eyes: a small downward curve, no highlight.
+        K.tube(L(x - 2.8, hy + 0.9, eyeZ + 1.2), L(x, hy - 0.2, eyeZ + 1.6), 0.6, dark, 6, true);
+        K.tube(L(x, hy - 0.2, eyeZ + 1.6), L(x + 2.8, hy + 0.9, eyeZ + 1.2), 0.6, dark, 6, true);
+        continue;
+      }
       if (eyeStyle === 'ring') {
         K.ellip(L(x, hy + 0.3, eyeZ + 0.2), r, K.Y, f, 2.9, 3.3, 1.8, pc('#ffffff'), 10, 6);
         K.ellip(L(x, hy + 0.1, eyeZ + 1.6), r, K.Y, f, 2.0, 2.5, 1.2, dark, 10, 6);
@@ -240,7 +249,7 @@ function tail(K: Kit, L: Local, a: Look, pc: Paint, y0: number, standing: boolea
   }
 }
 
-export function sitBody(K: Kit, L: Local, r: Vec3, f: Vec3, a: Look, s: Status, pc: Paint, yo: number, hold: Hold): void {
+export function sitBody(K: Kit, L: Local, r: Vec3, f: Vec3, a: Look, s: Face, pc: Paint, yo: number, hold: Hold): void {
   const shirt = pc(a.shirt), pants = pc(a.pants), skin = pc(a.skin), shoe = pc(a.shoe);
   K.ellip(L(0, 52 + yo, -3), r, K.Y, f, 16, 8, 13, pants, 14, 8);
   for (const x of [-8, 8]) {
@@ -278,7 +287,7 @@ export function sitBody(K: Kit, L: Local, r: Vec3, f: Vec3, a: Look, s: Status, 
   animalHead(K, L, r, f, 110 + yo, a, s, pc);
 }
 
-export function standBody(K: Kit, L: Local, r: Vec3, f: Vec3, a: Look, s: Status, pc: Paint, hold: Hold): void {
+export function standBody(K: Kit, L: Local, r: Vec3, f: Vec3, a: Look, s: Face, pc: Paint, hold: Hold): void {
   const shirt = pc(a.shirt), pants = pc(a.pants), skin = pc(a.skin), shoe = pc(a.shoe);
   K.ellip(L(0, 62, -1), r, K.Y, f, 15, 8, 11, pants, 14, 8);
   for (const x of [-8, 8]) {
@@ -310,6 +319,24 @@ export function standBody(K: Kit, L: Local, r: Vec3, f: Vec3, a: Look, s: Status
   }
   tail(K, L, a, pc, 62, true);
   animalHead(K, L, r, f, 118, a, s, pc);
+}
+
+/** Mattress top plus half the body depth: the back rests on the mattress. */
+const SLEEP_LIFT = 61;
+
+/**
+ * Asleep on its back under a blanket, in bed-local space: feet at the origin,
+ * head toward -z, front facing up. The standing body is built first and then
+ * laid down (rotated -90° about x) so the character matches its desk look.
+ */
+export function sleepBody(K: Kit, a: Look, pc: Paint, M: Mat4): void {
+  const G: Groups = { b: [] };
+  const B = new Kit(G);
+  standBody(B, (x, y, z) => [x, y, z], B.X, B.Z, a, 'tidur', pc, 'desk');
+  // Blanket, in standing coordinates: covers feet to chest, thick enough to hide the arms.
+  B.ab(0, -7, 3.5, 56, 104, 27, pc(mix(a.shirt, '#ffffff', 0.3)), { pz: pc(mix(a.shirt, '#ffffff', 0.45)) });
+  B.ab(0, 90, 3.5, 57, 8, 28, pc('#f2f0ea'));
+  K.append(G.b!, m4(M, m4(T(0, SLEEP_LIFT, 0), Rx(-Math.PI / 2))));
 }
 
 /**

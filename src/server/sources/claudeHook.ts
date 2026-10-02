@@ -1,4 +1,4 @@
-import { apiFailureBlock, clip, isSubagentTool, matchBlock, notifyBlock, summarizeTool, toolKind } from '../summarize.js';
+import { apiFailureBlock, clip, isSubagentTool, matchBlock, matchUsageLimit, notifyBlock, summarizeTool, toolKind } from '../summarize.js';
 import type { NormalizedEvent, SessionContext } from './types.js';
 
 // Claude Code hook payloads arrive on stdin of the hook command as JSON and are
@@ -90,15 +90,16 @@ export function parseHookPayload(payload: unknown, now: number, env?: Record<str
       const msg = s(p.message) ?? s(p.error) ?? 'API Error';
       return [{
         ...base, signal: 'error', kind: 'error', detail: clip(msg),
-        block: apiFailureBlock(s(p.error_type), msg),
+        block: apiFailureBlock(s(p.error_type), msg), limit: matchUsageLimit(msg, now) ?? undefined,
       }];
     }
     case 'Notification': {
       const msg = s(p.message) ?? '';
-      const block = notifyBlock(msg, s(p.notification_type));
+      const type = s(p.notification_type);
+      const block = notifyBlock(msg, type);
       return [{
         ...base, signal: block ? 'notify' : 'activity', kind: 'notify', detail: clip(msg || 'Notifikasi'),
-        block: block ?? undefined,
+        block: block ?? undefined, limitEnd: type === 'quota_auto_resume_fired' || undefined,
       }];
     }
     case 'Stop':

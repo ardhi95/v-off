@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
 import path from 'node:path';
 import type {
-  Agent, AgentEvent, AgentRuntime, AgentWithRuntime, BlockRecord, CleanerState, Config, ModelPrice, Period, Report, ReportRow,
+  Agent, AgentEvent, AgentRuntime, AgentWithRuntime, BlockRecord, CleanerState, Config, LimitState, ModelPrice, Period, Report, ReportRow,
   SessionSummary, StateSnapshot, Status, Usage,
 } from '../shared/types.js';
 import { clip } from './summarize.js';
@@ -14,6 +14,8 @@ const SNAPSHOT_EVENTS = 50;
 const USAGE_RETENTION_MS = 31 * 24 * 3600_000;
 export const SESSION_LOG_LIMIT = 300;
 const SESSION_LOGS_KEPT = 200;
+/** Office stays off this long when a limit message names no reset time (Claude's session window). */
+export const LIMIT_FALLBACK_MS = 5 * 3600_000;
 
 interface UsageRecord extends Usage {
   ts: number;
@@ -38,6 +40,8 @@ export interface StoreEvents {
   'config-updated': [Config];
   /** Transcript history (re)loaded in the background. Clients reload /api/state. */
   'state-reloaded': [];
+  /** Office went off (usage limit) or back on (null). */
+  'limit-updated': [LimitState | null];
 }
 
 const HOUR = 3600_000;
@@ -87,6 +91,12 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
   private activeHours = new Map<string, Set<number>>();
   private lastStatus = new Map<string, Status>();
   private cleaner: CleanerState = { mode: 'dry-run', items: [], totalBytes: 0, lastScanAt: null };
+  private limit: LimitState | null = null;
+  /**
+   * Limit messages at or before this time are stale: the API answered later, or
+   * the office was reopened. Guards against replays and out-of-order transcripts.
+   */
+  private limitFloor = 0;
 
   constructor(config: Config, private readonly clock: () => number = Date.now, history?: { blocks: BlockRecord[] }) {
     super();
@@ -160,6 +170,8 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
     for (const ev of events) {
       const s = this.session(ev);
       if (ev.channel === 'hook') s.hookSeenAt = ev.ts;
+      // Before the hook/transcript dedupe: the limit text often only reaches the transcript.
+      this.trackLimit(ev, s, !!opts.historic);
       // Hooks already report this session live; transcripts only add token usage.
       if (ev.channel === 'transcript' && s.hookSeenAt !== undefined && ev.signal !== 'usage') continue;
       // A source restarted (Pengaturan changed) re-reads transcripts: skip what was already applied.
@@ -253,8 +265,51 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
     this.emit('cleaner-updated', state);
   }
 
+  /** Office state: non-null while the usage limit keeps everyone asleep. */
+  limitState(): LimitState | null {
+    return this.limit;
+  }
+
+  /** "Buka kantor": reopen the office before the limit resets. */
+  clearLimit(): boolean {
+    if (!this.limit) return false;
+    this.endLimit(this.clock(), 'Kantor dibuka manual', true);
+    return true;
+  }
+
+  private trackLimit(ev: NormalizedEvent, s: SessionState, historic: boolean): void {
+    if (ev.limit) {
+      const until = ev.limit.resetsAt ?? ev.ts + LIMIT_FALLBACK_MS;
+      if (ev.ts <= this.limitFloor || until <= this.clock()) return;
+      if (this.limit && this.limit.since >= ev.ts) return;
+      this.limit = {
+        since: ev.ts, resetsAt: ev.limit.resetsAt, until,
+        reason: ev.detail ?? 'Batas pemakaian tercapai', agentId: s.agentId,
+      };
+      if (!historic) this.emit('limit-updated', this.limit);
+      return;
+    }
+    // A model reply (tool call, tokens) after the limit proves the quota is back.
+    const apiAnswered = ev.signal === 'tool-pre' || ev.signal === 'usage' || ev.signal === 'subagent-stop';
+    if (!ev.limitEnd && !apiAnswered) return;
+    this.limitFloor = Math.max(this.limitFloor, ev.ts);
+    if (this.limit && ev.ts > this.limit.since) {
+      this.endLimit(ev.ts, ev.limitEnd ? 'Kuota pulih, sesi dilanjutkan' : 'Limit pulih, agent kembali bekerja', !historic);
+    }
+  }
+
+  private endLimit(ts: number, why: string, notify: boolean): void {
+    const agentId = this.limit?.agentId ?? '';
+    this.limit = null;
+    this.limitFloor = Math.max(this.limitFloor, ts);
+    if (!notify) return;
+    this.pushFeed({ ts, agentId, sessionId: '', source: 'webhook', kind: 'message', detail: `Kantor buka lagi: ${why}` }, true);
+    this.emit('limit-updated', null);
+  }
+
   /** Re-evaluate time-based transitions (kerja → simak → idle). Call periodically. */
   tick(): void {
+    if (this.limit && this.clock() >= this.limit.until) this.endLimit(this.limit.until, 'waktu reset limit tercapai', true);
     const cutoff = this.clock() - USAGE_RETENTION_MS;
     // Replayed usage arrives out of time order, so track the oldest record instead of trusting usage[0].
     if (this.oldestUsageTs < cutoff) {
@@ -287,6 +342,7 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
       events: this.feed.slice(-SNAPSHOT_EVENTS).reverse(),
       cleaner: this.cleaner,
       ambience: this.config.ambience,
+      limit: this.limit,
     };
   }
 

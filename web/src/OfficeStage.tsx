@@ -1,9 +1,9 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import type { AgentWithRuntime, Department } from '../../src/shared/types.js';
+import type { AgentWithRuntime, Department, LimitState } from '../../src/shared/types.js';
 import { pickQuip } from './office/behavior.js';
-import { podsFrom, STATUS_STYLE, VIEWS, type PlaySpot } from './office/layout.js';
+import { podsFrom, SLEEP_STYLE, STATUS_STYLE, VIEWS, type Bed, type PlaySpot } from './office/layout.js';
 import { OfficeRenderer } from './office/renderer.js';
-import { inkOn } from './present.js';
+import { inkOn, officeOffText } from './present.js';
 import { toSceneAgents } from './sceneAgents.js';
 
 interface Props {
@@ -20,6 +20,10 @@ interface Props {
   cleanerStops: Map<number, string>;
   /** Ambience setting; false behaves like prefers-reduced-motion. */
   animations: boolean;
+  /** Dorm beds while the office is off (usage limit), else empty. */
+  beds: ReadonlyMap<string, Bed>;
+  limit: LimitState | null;
+  onOpenOffice: () => void;
 }
 
 const QUIP_EVERY_MS = 3600;
@@ -45,7 +49,7 @@ function usePrefersReducedMotion(): boolean {
 
 /** 3D office canvas with name tags, room labels, and camera controls. */
 export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeStage(
-  { agents, departments, selected, onSelect, isDim, cleanerAction, onCleanerAction, spots, cleanerStops, animations },
+  { agents, departments, selected, onSelect, isDim, cleanerAction, onCleanerAction, spots, cleanerStops, animations, beds, limit, onOpenOffice },
   ref,
 ) {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -60,12 +64,17 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
   const reduce = usePrefersReducedMotion() || !animations;
   const [quip, setQuip] = useState<{ id: string; text: string } | null>(null);
 
-  const pods = useMemo(() => podsFrom(departments), [departments]);
+  // Keyed by content: every /api/state reload brings a new departments array, and
+  // a new pods identity would recreate the renderer (and reset the camera).
+  const podsKey = JSON.stringify(podsFrom(departments));
+  const pods = useMemo(() => JSON.parse(podsKey) as ReturnType<typeof podsFrom>, [podsKey]);
   const scene = useMemo(() => toSceneAgents(agents, departments, isDim), [agents, departments, isDim]);
   const sceneRef = useRef(scene);
   sceneRef.current = scene;
   const spotsRef = useRef(spots);
   spotsRef.current = spots;
+  const bedsRef = useRef(beds);
+  bedsRef.current = beds;
   const stopsRef = useRef(cleanerStops);
   stopsRef.current = cleanerStops;
   const agentsRef = useRef(agents);
@@ -83,7 +92,7 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
       return;
     }
     setNoGL(false);
-    r.setAgents(sceneRef.current, spotsRef.current);
+    r.setAgents(sceneRef.current, spotsRef.current, bedsRef.current);
     r.setCleanerStops(stopsRef.current);
     r.start(stage);
     rendererRef.current = r;
@@ -100,8 +109,19 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
   }, [pods, reduce]);
 
   useEffect(() => {
-    rendererRef.current?.setAgents(scene, spots);
-  }, [scene, spots]);
+    rendererRef.current?.setAgents(scene, spots, beds);
+  }, [scene, spots, beds]);
+
+  // Office just went off: look at the dorm while everyone walks to bed.
+  const offSince = limit?.since;
+  useEffect(() => {
+    if (offSince === undefined || reduce) return;
+    const v = VIEWS.asrama;
+    if (v) {
+      rendererRef.current?.camera.view(v);
+      setView('asrama');
+    }
+  }, [offSince, reduce]);
 
   useEffect(() => {
     rendererRef.current?.setCleanerStops(cleanerStops);
@@ -112,7 +132,8 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
     let hide: ReturnType<typeof setTimeout> | undefined;
     let current: string | null = null;
     const tick = setInterval(() => {
-      const q = pickQuip(sceneRef.current, (id) => agentsRef.current.find((a) => a.id === id)?.quips, spotsRef.current, current);
+      // Sleepers only snore.
+      const q = pickQuip(sceneRef.current, (id) => (bedsRef.current.has(id) ? ['Zzz…'] : agentsRef.current.find((a) => a.id === id)?.quips), spotsRef.current, current);
       if (!q) return;
       current = q.id;
       setQuip(q);
@@ -146,7 +167,10 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
     focus(id: string) {
       const p = rendererRef.current?.anchor('h:' + id);
       if (!p) return;
-      cam()?.focus(p[0]!, p[2]!);
+      const bed = bedsRef.current.get(id);
+      // Asleep: look down into the bedroom from the corridor side, over the low walls.
+      if (bed) cam()?.view({ label: '', tx: p[0]!, ty: 50, tz: p[2]!, yaw: bed.dir === 1 ? -1.2 : 1.2, pitch: 0.82, dist: 620 });
+      else cam()?.focus(p[0]!, p[2]!);
       setView('');
     },
   }), []);
@@ -191,6 +215,7 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
     { key: 'r:cto', label: cto ? `Ruang CTO · ${cto.name}` : 'Ruang CTO' },
     { key: 'r:tv', label: 'Papan Sprint' },
     { key: 'r:santai', label: 'Ruang Santai' },
+    { key: 'r:asrama', label: limit ? 'Asrama · kantor off' : 'Asrama' },
   ];
 
   return (
@@ -214,7 +239,8 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
         <span key={p.id} className="room-tag dept" data-k3d={'d:' + p.id} style={{ '--c': p.c } as React.CSSProperties}>{p.label}</span>
       ))}
       {agents.filter((a) => !a.hidden).map((a) => {
-        const st = STATUS_STYLE[a.runtime.status];
+        const asleep = beds.has(a.id);
+        const st = asleep ? SLEEP_STYLE : STATUS_STYLE[a.runtime.status];
         const sel = selected === a.id;
         const dim = isDim?.(a) ?? false;
         return (
@@ -231,12 +257,19 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
             <span className="tag-avatar" style={{ background: a.shirt, color: inkOn(a.shirt) }}>{a.name.charAt(0).toUpperCase()}</span>
             <span>{a.name}</span>
             <span className="tag-short">{a.short}</span>
-            <span className={`tag-dot${a.runtime.status === 'macet' ? ' blink' : ''}`} style={{ background: st.fill }} />
-            {a.walker && <span className="tag-extra">{cleanerAction}</span>}
+            <span className={`tag-dot${a.runtime.status === 'macet' && !asleep ? ' blink' : ''}`} style={{ background: st.fill }} />
+            {asleep ? <span className="tag-extra tag-zzz">Zzz</span> : a.walker && <span className="tag-extra">{cleanerAction}</span>}
             {quip?.id === a.id && !dim && <span className="quip" aria-hidden="true">{quip.text}</span>}
           </button>
         );
       })}
+      {limit && (
+        <div className="office-off" role="status" onPointerDown={stop}>
+          <span className="office-off-dot" aria-hidden="true" />
+          <span>{officeOffText(limit)}</span>
+          <button type="button" className="cam" onClick={onOpenOffice}>Buka kantor</button>
+        </div>
+      )}
       {noGL && <div className="stage-fallback">Browser ini tidak mendukung WebGL, jadi tampilan 3D tidak bisa ditampilkan.</div>}
       <div className="cam-bar" onPointerDown={stop}>
         {Object.entries(VIEWS).map(([key, v]) => (

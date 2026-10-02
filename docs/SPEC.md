@@ -140,6 +140,18 @@ Format dan lokasi di bawah perlu **diverifikasi terhadap dokumentasi resmi terba
 
 "Tandai sudah ditangani" mengubah `macet` menjadi `kerja` sampai ada galat baru. Override manual "Istirahat & main" berlaku sampai ada aktivitas baru atau tombol "Kembali bekerja" ditekan.
 
+### 6.1 Kantor off (limit habis)
+
+- Pemicu: pesan batas pemakaian akun dari Claude Code, di transkrip (`isApiErrorMessage`) atau di hook `StopFailure`.
+  Contoh: `Claude AI usage limit reached|<epoch>`, `5-hour limit reached ∙ resets 3pm`, `You've hit your limit · resets 3pm (Asia/Jakarta)`.
+  Rate limit biasa (`Rate limit exceeded`) tidak memicu.
+- Selama off, `GET /api/state` berisi `limit: { since, resetsAt?, until, reason, agentId }` dan SSE mengirim `limit-updated`.
+- Selesai saat: `until` tercapai (waktu reset, atau `since` + 5 jam bila tidak ada), Notification `quota_auto_resume_fired`,
+  balasan model setelah `since` (tool use, token), atau `POST /api/limit/clear`.
+- Tampilan: semua agent berjalan ke **Asrama** (ruangan di kiri kantor, pintu di dinding kiri, 20 kamar dengan kasur, meja
+  lampu, dan lampu tidur) lalu tidur telentang berselimut warna baju, mata terpejam, label "Zzz". Status asli agent tetap
+  dihitung; panel menampilkan "Tidur · limit habis".
+
 ## 7. Pemetaan agent ↔ sesi
 
 Setiap agent punya `match: MatchRule[]` yang dievaluasi berurutan:
@@ -161,7 +173,7 @@ Sesi yang tidak cocok dengan agent mana pun masuk ke tamu "Agent tanpa nama" di 
 
 ```
 GET  /api/state              -> { agents, departments, events(last 50), cleaner }
-GET  /api/stream             -> SSE: agent-updated, event-added, cleaner-updated
+GET  /api/stream             -> SSE: agent-updated, event-added, cleaner-updated, limit-updated
 POST /api/hook               <- payload hook Claude Code
 POST /api/status             <- webhook umum
 POST /api/agents/:id/resolve -> tandai hambatan ditangani
@@ -169,6 +181,7 @@ POST /api/agents/:id/idle    {idle: boolean}
 GET  /api/report?period=day|week|month
 GET  /api/config  PUT /api/config
 POST /api/cleaner/clean      {paths[], confirm: true}
+POST /api/limit/clear        -> buka kantor sebelum limit reset (§6.1)
 ```
 
 ## 10. Laporan & biaya

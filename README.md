@@ -83,6 +83,19 @@ tetapkan foldernya ke agent dari Pengaturan → Sesi tanpa agent.
 - **Pengaturan Tim** (`/pengaturan`): agent, departemen, sumber data, harga model, aturan status,
   pembersih cache, suasana. Tersimpan ke `~/.v-off/config.json`.
 
+## Kantor off saat limit habis
+
+Kalau Claude Code melaporkan **batas pemakaian akun habis** (misalnya "You've hit your limit · resets 3pm" atau
+"Claude AI usage limit reached"), kantor masuk mode **off**: semua agent, termasuk Udin, berjalan ke **Asrama** di
+sebelah kiri kantor dan tidur di kamar masing-masing. Kamera pindah ke Asrama dan banner menampilkan kapan limit
+reset. Lampu tidur di Asrama hanya menyala selama kantor off.
+
+Kantor buka lagi otomatis saat waktu reset tercapai, saat Claude Code melanjutkan sesi karena kuota pulih, atau saat
+ada balasan model baru (pemakaian tool atau token). Tanpa waktu reset di pesan, kantor off paling lama 5 jam.
+Tombol **Buka kantor** di banner membukanya lebih awal. Rate limit biasa (429 sesaat) tidak membuat kantor off.
+
+Waktu reset dibaca dalam zona waktu komputer yang menjalankan v-off.
+
 ## Biaya
 
 Biaya adalah **estimasi**: token × harga per model di Pengaturan → Harga model (US$ per 1 juta token).
@@ -115,6 +128,7 @@ GET  /api/agents/:id/log     GET  /api/sessions/:id
 GET  /api/report?period=day|week|month
 GET  /api/config             PUT  /api/config
 GET  /api/models             POST /api/cleaner/clean (belum tersedia, 501)
+POST /api/limit/clear        (buka kantor sebelum limit reset)
 ```
 
 Request dari halaman web lain (Origin asing) dan Host selain localhost ditolak.

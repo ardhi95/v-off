@@ -48,11 +48,24 @@ Kerjakan fase demi fase. Commit di akhir tiap fase dengan tes yang lolos.
 - Aksesibilitas: tombol nyata (`<button>`), label untuk setiap input, kontras teks minimal 4.5:1, dan hormati `prefers-reduced-motion` (hentikan animasi berjalan/bermain).
 - Teks UI dalam Bahasa Indonesia. Nama variabel dan kode dalam bahasa Inggris.
 
-## Perintah (isi saat proyek dibuat)
+## Perintah
 
 ```
 npm install
-npm run dev        # server + vite dev
-npm test           # unit test
-npm run build
+npm run dev        # server (tsx watch). Vite UI ditambahkan di Fase 2
+npm test           # unit test (vitest)
+npm run typecheck
+npm run build      # tsc -> dist/
 ```
+
+Variabel lingkungan: `V_OFF_PORT` (default 4747), `V_OFF_HOST` (default 127.0.0.1),
+`V_OFF_HOME` (default `~/.v-off`), `CLAUDE_CONFIG_DIR` (default `~/.claude`).
+
+## Struktur kode
+
+- `src/shared/types.ts`: model data (SPEC §4), dipakai server dan UI.
+- `src/server/defaults.ts`: 18 agent dan departemen default dari mockup.
+- `src/server/sources/`: adapter sumber data di balik `SourceAdapter`. `claudeHook.ts` (payload hook),
+  `claudeTranscript.ts` (parser JSONL), `claudeTranscriptSource.ts` (tail file dengan polling).
+- `src/server/status.ts`: aturan status (SPEC §6), fungsi murni. `matcher.ts`: pemetaan sesi ke agent (SPEC §7).
+- `src/server/store.ts`: state di memori, feed, token/biaya, laporan. `http.ts`: REST + SSE (SPEC §9).

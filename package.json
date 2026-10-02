@@ -1,0 +1,26 @@
+{
+  "name": "v-off",
+  "version": "0.1.0",
+  "description": "Kantor virtual 3D untuk memantau AI coding agent (Claude Code, Codex, Gemini CLI) secara lokal.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "v-off": "dist/server/cli.js"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server/cli.ts",
+    "start": "node dist/server/cli.js",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

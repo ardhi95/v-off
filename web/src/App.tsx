@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentWithRuntime } from '../../src/shared/types.js';
-import { api, copyText } from './actions.js';
+import { api } from './actions.js';
 import { ActivityFeed } from './ActivityFeed.js';
 import { AgentPanel } from './AgentPanel.js';
 import { useOfficeData } from './api.js';
@@ -8,9 +8,10 @@ import { FilterBar } from './FilterBar.js';
 import { assignSpotsSticky, cleanerStops } from './office/behavior.js';
 import { assignBeds, type Bed, type PlaySpot } from './office/layout.js';
 import { OfficeStage, type OfficeStageHandle } from './OfficeStage.js';
-import { defaultSelection, formatBytes, matchesFilter, resumeCommand, type FilterKey } from './present.js';
+import { defaultSelection, formatBytes, matchesFilter, type FilterKey } from './present.js';
 import { toSceneAgents } from './sceneAgents.js';
 import { ReportPage } from './ReportPage.js';
+import { MessageDialog } from './MessageDialog.js';
 import { SessionDialog } from './SessionDialog.js';
 import { SettingsPage } from './SettingsPage.js';
 
@@ -132,6 +133,7 @@ export function App() {
   const [filter, setFilter] = useState<FilterKey>('semua');
   const [cleanerAction, setCleanerAction] = useState('Berkeliling mencari cache…');
   const [sessionOpen, setSessionOpen] = useState<string | null>(null);
+  const [messageTo, setMessageTo] = useState<{ agentName: string; sessionId: string; cwd?: string } | null>(null);
   const [toast, showToast] = useToast();
   const stageRef = useRef<OfficeStageHandle>(null);
   const clock = useClock();
@@ -166,9 +168,8 @@ export function App() {
   const eventCount = useEventCounter(state?.events[0]);
   const stops = useMemo(() => cleanerStops(cleanerItems ?? [], agents, formatBytes), [cleanerItems, agents]);
 
-  const onMessage = async (sessionId: string) => {
-    const cmd = resumeCommand(sessionId);
-    showToast((await copyText(cmd)) ? `Disalin: ${cmd}` : `Salin manual: ${cmd}`);
+  const onMessage = (sessionId: string) => {
+    if (agent) setMessageTo({ agentName: agent.name, sessionId, cwd: agent.runtime.cwd });
   };
 
   return (
@@ -249,6 +250,7 @@ export function App() {
               )}
             </div>
             {sessionOpen && <SessionDialog sessionId={sessionOpen} onClose={() => setSessionOpen(null)} />}
+            {messageTo && <MessageDialog {...messageTo} onClose={() => setMessageTo(null)} onToast={showToast} />}
           </>
         ) : (
           !error && <p className="muted">Memuat kantor…</p>

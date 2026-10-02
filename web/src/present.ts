@@ -124,8 +124,19 @@ export function locationOf(a: AgentWithRuntime, departments: Department[], spot?
   return desk;
 }
 
-export function resumeCommand(sessionId: string): string {
-  return `claude --resume ${sessionId}`;
+/** POSIX single-quote a shell word. */
+export function shellQuote(s: string): string {
+  return /^[\w@%+=:,./-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * Command that resumes a session and sends it a message. `claude --resume` looks the
+ * session up per project folder, so it must run from the session's cwd.
+ */
+export function resumeCommand(sessionId: string, cwd?: string, message?: string): string {
+  const cd = cwd ? `cd ${shellQuote(cwd)} && ` : '';
+  const msg = message?.trim() ? ` ${shellQuote(message.trim())}` : '';
+  return `${cd}claude --resume ${shellQuote(sessionId)}${msg}`;
 }
 
 const LOG_SIZE = 8;

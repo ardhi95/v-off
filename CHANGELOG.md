@@ -1,5 +1,12 @@
 # Changelog
 
+## Belum dirilis
+
+- Kantor off saat limit pemakaian habis: semua agent berjalan ke Asrama (ruangan baru di kiri kantor, 20 kamar) dan
+  tidur sampai limit reset, kuota pulih, atau tombol "Buka kantor". `GET /api/state` mendapat `limit`, SSE
+  `limit-updated`, dan endpoint `POST /api/limit/clear`.
+- Renderer tidak lagi dibuat ulang (dan kamera tidak reset) setiap kali `/api/state` dimuat ulang.
+
 ## 0.1.0 — 2026-10-02
 
 Rilis pertama.

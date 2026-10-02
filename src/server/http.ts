@@ -163,11 +163,13 @@ export function createServer(store: Store, opts: ServerOptions = {}): http.Serve
   const onCleaner = (c: unknown) => broadcast('cleaner-updated', c);
   const onConfig = () => broadcast('config-updated', {});
   const onReload = () => broadcast('state-reloaded', {});
+  const onLimit = (l: unknown) => broadcast('limit-updated', l);
   store.on('agent-updated', onAgent);
   store.on('event-added', onEvent);
   store.on('cleaner-updated', onCleaner);
   store.on('config-updated', onConfig);
   store.on('state-reloaded', onReload);
+  store.on('limit-updated', onLimit);
   const heartbeat = setInterval(() => {
     for (const c of clients) c.write(': ping\n\n');
   }, 15_000);
@@ -242,6 +244,11 @@ export function createServer(store: Store, opts: ServerOptions = {}): http.Serve
         }
       }
 
+      if (route === 'POST /api/limit/clear') {
+        store.clearLimit();
+        return send(res, 200, { ok: true });
+      }
+
       if (route === 'GET /api/report') {
         const period = (url.searchParams.get('period') ?? 'day') as Period;
         if (!['day', 'week', 'month'].includes(period)) throw new HttpError(400, 'period harus day, week, atau month.');
@@ -290,6 +297,7 @@ export function createServer(store: Store, opts: ServerOptions = {}): http.Serve
     store.off('cleaner-updated', onCleaner);
     store.off('config-updated', onConfig);
     store.off('state-reloaded', onReload);
+    store.off('limit-updated', onLimit);
     for (const c of clients) c.end();
     clients.clear();
   });

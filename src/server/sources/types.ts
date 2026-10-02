@@ -45,6 +45,10 @@ export interface NormalizedEvent {
   subagent?: boolean;
   /** tool_use_id: pairs start and end of a call even when async hooks arrive out of order. */
   toolId?: string;
+  /** Account usage limit reached: the whole office goes off (see Store limit). */
+  limit?: { resetsAt?: number };
+  /** Claude Code reports the quota is back (auto-resume fired). */
+  limitEnd?: boolean;
   /** The event closes a tool call that a 'tool-pre' opened. */
   endsTool?: boolean;
   ctx?: SessionContext;

@@ -201,12 +201,29 @@ export interface SessionSummary {
   truncated: boolean;
 }
 
+/**
+ * Account usage limit reached ("limit habis"): the office is off and every
+ * agent sleeps in the dorm until the limit resets or the API works again.
+ */
+export interface LimitState {
+  since: number;
+  /** Reset time stated in the limit message, when there was one. */
+  resetsAt?: number;
+  /** Latest time the office stays off: resetsAt, or a fallback window after `since`. */
+  until: number;
+  reason: string;
+  /** Agent whose session hit the limit. */
+  agentId: string;
+}
+
 export interface StateSnapshot {
   agents: AgentWithRuntime[];
   departments: Department[];
   events: AgentEvent[];
   cleaner: CleanerState;
   ambience: Ambience;
+  /** Present while the office is off because the usage limit ran out. */
+  limit: LimitState | null;
 }
 
 // ---- report (GET /api/report) ----

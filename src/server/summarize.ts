@@ -87,10 +87,64 @@ const BLOCK_PATTERNS: { re: RegExp; reason: string; hint: string }[] = [
 ];
 
 export function matchBlock(text: string): BlockMatch | null {
+  if (isUsageLimit(text)) return { reason: BLOCK_PATTERNS[0]!.reason, hint: BLOCK_PATTERNS[0]!.hint };
   for (const p of BLOCK_PATTERNS) {
     if (p.re.test(text)) return { reason: p.reason, hint: p.hint };
   }
   return null;
+}
+
+// Account usage limit (quota) messages, e.g. "Claude AI usage limit reached|1759420800",
+// "5-hour limit reached ∙ resets 3pm", "You've hit your limit · resets 3pm (Asia/Jakarta)".
+// A plain 429 "rate limit" is transient and does not close the office.
+const USAGE_LIMIT_RE = /usage limit|(?:session|weekly|daily|opus|sonnet|\d+-hour)\s+limit|hit your (?:\w+ )?limit|limit (?:reached|will reset|resets)|out of (?:extra )?usage/i;
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+function isUsageLimit(text: string): boolean {
+  return USAGE_LIMIT_RE.test(text.replace(/rate.?limit(?:ed)?/gi, ''));
+}
+
+/** Detect an account usage-limit message. Returns the reset time when the message states one. */
+export function matchUsageLimit(text: string, now: number): { resetsAt?: number } | null {
+  if (!isUsageLimit(text)) return null;
+  const resetsAt = parseResetAt(text, now);
+  return resetsAt === undefined ? {} : { resetsAt };
+}
+
+/**
+ * Reset time from a limit message: an epoch suffix ("…|1759420800") or
+ * "resets 3pm", "resets 10:30am", "resets Oct 9, 10am", "resets 15:00".
+ * Clock times are read in the server's local time zone (the zone in
+ * parentheses is ignored) and mean the next such time after `now`.
+ */
+export function parseResetAt(text: string, now: number): number | undefined {
+  const epoch = /\|(\d{10})\b/.exec(text);
+  if (epoch) return Number(epoch[1]) * 1000;
+  const m = /\bresets?\s+(?:at\s+)?(?:([A-Za-z]{3,9})\s+(\d{1,2}),?\s+(?:at\s+)?)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i.exec(text);
+  if (!m) return undefined;
+  let hour = Number(m[3]);
+  const minute = m[4] ? Number(m[4]) : 0;
+  const ampm = m[5]?.toLowerCase();
+  if (ampm) {
+    if (hour < 1 || hour > 12) return undefined;
+    hour = (hour % 12) + (ampm === 'pm' ? 12 : 0);
+  } else if (!m[4]) {
+    return undefined; // a bare number is not a clock time
+  }
+  if (hour > 23 || minute > 59) return undefined;
+  const d = new Date(now);
+  if (m[1]) {
+    const month = MONTHS.indexOf(m[1].slice(0, 3).toLowerCase());
+    if (month < 0) return undefined;
+    d.setMonth(month, Number(m[2]));
+  }
+  d.setHours(hour, minute, 0, 0);
+  if (m[1]) {
+    if (d.getTime() < now - 24 * 3600_000) d.setFullYear(d.getFullYear() + 1);
+  } else if (d.getTime() <= now) {
+    d.setDate(d.getDate() + 1);
+  }
+  return d.getTime();
 }
 
 /** Notification types that mean the agent waits on the user (docs: hooks › Notification). */

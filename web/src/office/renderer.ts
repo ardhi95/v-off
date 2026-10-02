@@ -1,6 +1,6 @@
 import { OrbitCamera, project } from './camera.js';
 import type { Groups } from './kit.js';
-import { exitChain, OB_PATH, pathLength, pointAt, ROOM_ANCHORS, route, VIEWS, type Placement, type PlaySpot, type Pod, type XZ } from './layout.js';
+import { DORM, exitChain, OB_PATH, pathLength, pointAt, ROOM_ANCHORS, route, VIEWS, type Bed, type Placement, type PlaySpot, type Pod, type XZ } from './layout.js';
 import { m4, Rx, Ry, T, type Mat4 } from './math.js';
 import { agentAnchors, buildRings, PeopleBuilder, type Anchors, type SceneAgent } from './people.js';
 import { FloorText } from './floorText.js';
@@ -38,8 +38,10 @@ interface Transit {
 }
 
 function samePlacement(a: Placement, b: Placement): boolean {
-  if (a.kind !== b.kind) return false;
-  return a.kind === 'spot' ? a.spot.k === (b as { spot: PlaySpot }).spot.k : a.seat.join() === (b as { seat: number[] }).seat.join();
+  if (a.kind === 'spot' && b.kind === 'spot') return a.spot.k === b.spot.k;
+  if (a.kind === 'bed' && b.kind === 'bed') return a.bed.k === b.bed.k;
+  if (a.kind === 'seat' && b.kind === 'seat') return a.seat.join() === b.seat.join();
+  return false;
 }
 
 export interface RendererOptions {
@@ -71,6 +73,8 @@ export class OfficeRenderer {
   private labelRoot: HTMLElement | null = null;
   private agents: SceneAgent[] = [];
   private spots = new Map<string, PlaySpot>();
+  /** Beds while the office is off (usage limit); empty otherwise. */
+  private beds: ReadonlyMap<string, Bed> = new Map();
   private selected: string | null = null;
   private people = new PeopleBuilder();
   /** Where each agent is (or is heading), to detect desk <-> lounge moves. */
@@ -143,15 +147,18 @@ export class OfficeRenderer {
    * Replace the scene's agents and their play spots. Unchanged agents reuse
    * cached geometry. An agent whose place changes (desk <-> lounge) walks there.
    */
-  setAgents(agents: SceneAgent[], spots: Map<string, PlaySpot>): void {
+  setAgents(agents: SceneAgent[], spots: Map<string, PlaySpot>, beds: ReadonlyMap<string, Bed> = new Map()): void {
+    if (beds.size !== this.beds.size) this.dirty = true; // dorm lamps switch
     this.agents = agents;
     this.spots = spots;
+    this.beds = beds;
     const seen = new Set<string>();
     for (const a of agents) {
       if (a.walker || !a.seat) continue;
       seen.add(a.id);
       const sp = spots.get(a.id);
-      const target: Placement = sp ? { kind: 'spot', spot: sp } : { kind: 'seat', seat: a.seat };
+      const bed = beds.get(a.id);
+      const target: Placement = bed ? { kind: 'bed', bed } : sp ? { kind: 'spot', spot: sp } : { kind: 'seat', seat: a.seat };
       const prev = this.placement.get(a.id);
       this.placement.set(a.id, target);
       if (!prev || samePlacement(prev, target) || this.reduce) {
@@ -166,7 +173,7 @@ export class OfficeRenderer {
     }
     for (const id of [...this.placement.keys()]) if (!seen.has(id)) this.placement.delete(id);
     for (const id of [...this.transits.keys()]) if (!seen.has(id)) this.transits.delete(id);
-    agentAnchors(agents, this.spots, this.anchors);
+    agentAnchors(agents, this.spots, this.anchors, this.beds);
     this.needPeople = true;
     this.needRings = true;
   }
@@ -255,12 +262,12 @@ export class OfficeRenderer {
     let moving = this.camera.step();
     if (this.needPeople) {
       const walking = new Set(this.transits.keys());
-      this.upload(this.people.build(this.agents, this.spots, walking), ['i_', 'w_']);
+      this.upload(this.people.build(this.agents, this.spots, walking, this.beds), ['i_', 'w_']);
       this.needPeople = false;
       this.dirty = true;
     }
     if (this.needRings) {
-      this.upload(buildRings(this.agents, this.spots, this.selected, new Set(this.transits.keys())));
+      this.upload(buildRings(this.agents, this.spots, this.selected, new Set(this.transits.keys()), this.beds));
       this.needRings = false;
       this.dirty = true;
     }
@@ -297,15 +304,16 @@ export class OfficeRenderer {
       }
     }
     if (arrived) {
-      agentAnchors(this.agents, this.spots, this.anchors);
+      agentAnchors(this.agents, this.spots, this.anchors, this.beds);
       this.needPeople = true;
       this.needRings = true;
     }
     return true;
   }
 
+  /** The office boy walks his round unless he is asleep in the dorm. */
   private hasWalker(): boolean {
-    return this.agents.some((a) => a.walker);
+    return this.agents.some((a) => a.walker && !this.beds.has(a.id));
   }
 
   /** Office boy walk along OB_PATH with mopping stops. Returns true if it moved. */
@@ -376,7 +384,7 @@ export class OfficeRenderer {
       obMop: piv(18, 74, 22, Ry(mop)),
       T: T(o.x, 0, o.z),
     };
-    const walker = this.agents.find((a) => a.walker);
+    const walker = this.agents.find((a) => a.walker && !this.beds.has(a.id));
     if (walker) {
       this.anchors['p:' + walker.id] = [o.x, 172, o.z];
       this.anchors['h:' + walker.id] = [o.x, 100, o.z];
@@ -408,6 +416,8 @@ export class OfficeRenderer {
     if (eye[2] > -840) this.drawGroup('back');
     if (eye[0] > -1050) this.drawGroup('left');
     if (eye[0] < 1050) this.drawGroup('right');
+    if (eye[0] > DORM.X0) this.drawGroup('dormW');
+    this.drawGroup(this.beds.size ? 'dormOn' : 'dormOff');
     if (this.obM) {
       for (const k of OB_PARTS) {
         gl.uniformMatrix4fv(this.loc.m, false, new Float32Array(this.obM[k]!));

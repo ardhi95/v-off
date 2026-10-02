@@ -93,6 +93,15 @@ describe('HTTP API', () => {
     expect(bad.status).toBe(400);
   });
 
+  it('a usage-limit StopFailure turns the office off; POST /api/limit/clear reopens it', async () => {
+    await post('/api/hook', { session_id: 'sl', hook_event_name: 'StopFailure', error_type: 'rate_limit', message: "You've hit your limit · resets 11pm" });
+    let state = (await (await fetch(`${base}/api/state`)).json()) as StateSnapshot;
+    expect(state.limit?.reason).toBe("You've hit your limit · resets 11pm");
+    expect((await post('/api/limit/clear', {})).status).toBe(200);
+    state = (await (await fetch(`${base}/api/state`)).json()) as StateSnapshot;
+    expect(state.limit).toBeNull();
+  });
+
   it('cleaner stays dry-run', async () => {
     expect((await post('/api/cleaner/clean', { paths: ['/tmp'], confirm: true })).status).toBe(501);
   });

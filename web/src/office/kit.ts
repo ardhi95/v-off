@@ -91,6 +91,18 @@ export class Kit {
     }
   }
 
+  /** Append prebuilt vertices (10 floats each), transformed by a column-major 4x4 matrix (rotation + translation). */
+  append(data: ArrayLike<number>, M: readonly number[]): void {
+    for (let i = 0; i < data.length; i += 10) {
+      const x = data[i]!, y = data[i + 1]!, z = data[i + 2]!, nx = data[i + 3]!, ny = data[i + 4]!, nz = data[i + 5]!;
+      this.cur.push(
+        M[0]! * x + M[4]! * y + M[8]! * z + M[12]!, M[1]! * x + M[5]! * y + M[9]! * z + M[13]!, M[2]! * x + M[6]! * y + M[10]! * z + M[14]!,
+        M[0]! * nx + M[4]! * ny + M[8]! * nz, M[1]! * nx + M[5]! * ny + M[9]! * nz, M[2]! * nx + M[6]! * ny + M[10]! * nz,
+        data[i + 6]!, data[i + 7]!, data[i + 8]!, data[i + 9]!,
+      );
+    }
+  }
+
   /** Axis-aligned box standing on y0. */
   ab(x: number, y0: number, z: number, w: number, h: number, d: number, c0: RGBA, fc?: FaceColors): void {
     this.box([x, y0 + h / 2, z], this.X, this.Y, this.Z, w / 2, h / 2, d / 2, c0, fc);

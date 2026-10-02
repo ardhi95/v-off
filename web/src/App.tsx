@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentWithRuntime } from '../../src/shared/types.js';
-import { copyText } from './actions.js';
+import { api, copyText } from './actions.js';
 import { ActivityFeed } from './ActivityFeed.js';
 import { AgentPanel } from './AgentPanel.js';
 import { useOfficeData } from './api.js';
 import { FilterBar } from './FilterBar.js';
 import { assignSpotsSticky, cleanerStops } from './office/behavior.js';
-import type { PlaySpot } from './office/layout.js';
+import { assignBeds, type Bed, type PlaySpot } from './office/layout.js';
 import { OfficeStage, type OfficeStageHandle } from './OfficeStage.js';
 import { defaultSelection, formatBytes, matchesFilter, resumeCommand, type FilterKey } from './present.js';
 import { toSceneAgents } from './sceneAgents.js';
@@ -148,11 +148,18 @@ export function App() {
   const isDim = useCallback((a: AgentWithRuntime) => !matchesFilter(filter, a.runtime.status), [filter]);
   // Sticky spots: idle agents keep their game while others come and go.
   const prevSpots = useRef(new Map<string, PlaySpot>());
+  const limit = state?.limit ?? null;
+  const officeOff = !!limit;
+  // Office off (usage limit): everyone goes to bed, nobody plays.
+  const beds = useMemo<ReadonlyMap<string, Bed>>(
+    () => (officeOff ? assignBeds(toSceneAgents(agents, departments).map((a) => a.id)) : new Map()),
+    [officeOff, agents, departments],
+  );
   const spots = useMemo(() => {
-    const next = assignSpotsSticky(toSceneAgents(agents, departments), prevSpots.current);
+    const next = officeOff ? new Map<string, PlaySpot>() : assignSpotsSticky(toSceneAgents(agents, departments), prevSpots.current);
     prevSpots.current = next;
     return next;
-  }, [agents, departments]);
+  }, [agents, departments, officeOff]);
   useBlockedSound(agents, !!state?.ambience?.blockedSound);
   const cleanerItems = state?.cleaner.items;
   // Counts live events so the report refreshes as new activity arrives.
@@ -214,6 +221,11 @@ export function App() {
                   spots={spots}
                   cleanerStops={stops}
                   animations={state.ambience?.animations !== false}
+                  beds={beds}
+                  limit={limit}
+                  onOpenOffice={() => {
+                    api.openOffice().then(() => showToast('Kantor dibuka lagi'), (e: Error) => showToast(`Gagal: ${e.message}`));
+                  }}
                 />
                 <ActivityFeed events={state.events} agents={agents} departments={departments} onSelect={setPicked} />
               </section>
@@ -223,6 +235,7 @@ export function App() {
                   departments={departments}
                   events={state.events}
                   spot={spots.get(agent.id)}
+                  asleep={beds.has(agent.id)}
                   cleaner={state.cleaner}
                   cleanerAction={cleanerAction}
                   now={now}

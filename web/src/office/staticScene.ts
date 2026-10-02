@@ -1,15 +1,16 @@
 import { col as C, Kit, type Groups } from './kit.js';
-import type { Pod } from './layout.js';
+import { BED, BEDS, DORM, type Pod } from './layout.js';
 import type { Vec3 } from './math.js';
 
 // Static office geometry, ported from buildStatic() in design/mockup/Main.dc.html.
-// Groups: main (opaque), trans (glass, shadows), back/left/right (walls hidden
-// when the camera is behind them).
+// Groups: main (opaque), trans (glass, shadows), back/left/right/dormW (walls
+// hidden when the camera is behind them), dormOn/dormOff (dorm lamps lit only
+// while the office is off).
 
 export const BOUNDS = { X0: -1050, X1: 1050, ZB: -840, ZL: 690, ZF: 1350 };
 
 export function buildStatic(pods: Pod[]): Groups {
-  const G: Groups = { main: [], trans: [], back: [], left: [], right: [] };
+  const G: Groups = { main: [], trans: [], back: [], left: [], right: [], dormW: [], dormOn: [], dormOff: [] };
   const K = new Kit(G);
   const { X0, X1, ZB, ZL, ZF } = BOUNDS;
   const pod = (id: string) => pods.find((p) => p.id === id);
@@ -339,11 +340,25 @@ export function buildStatic(pods: Pod[]): Groups {
     const dx = x1 - x0, dy = y1 - y0, l = Math.hypot(dx, dy), nx2 = (-dy / l) * 1.2, ny2 = (dx / l) * 1.2;
     K.q4([x0 + nx2, y0 + ny2, ZB + 3.7], [x1 + nx2, y1 + ny2, ZB + 3.7], [x1 - nx2, y1 - ny2, ZB + 3.7], [x0 - nx2, y0 - ny2, ZB + 3.7], K.Z, C('#3a3f49'));
   }
-  const sideWall = (gx: string, sgn: number, wins: [number, number][]) => {
+  const sideWall = (gx: string, sgn: number, wins: [number, number][], door?: [number, number]) => {
     K.use(gx);
     const x = sgn * (X1 + 6), xi = sgn * (X1 - 0.6), zc = (ZB + ZF) / 2, zl = ZF - ZB;
-    K.ab(x, 0, zc, 12, 270, zl + 12, C('#e2ddd2'), sgn < 0 ? { px: C('#e7e2d8') } : { nx: C('#e7e2d8') });
-    K.ab(xi, 0, zc, 1, 10, zl, C('#4a4e58'));
+    const face = sgn < 0 ? { px: C('#e7e2d8') } : { nx: C('#e7e2d8') };
+    if (door) {
+      // Wall pieces around the doorway, a lintel above it, and a frame.
+      const [d0, d1] = door;
+      for (const [z0, z1] of [[ZB - 6, d0], [d1, ZF + 6]] as const) {
+        K.ab(x, 0, (z0 + z1) / 2, 12, 270, z1 - z0, C('#e2ddd2'), face);
+        K.ab(xi, 0, (z0 + z1) / 2, 1, 10, z1 - z0, C('#4a4e58'));
+      }
+      K.ab(x, 215, (d0 + d1) / 2, 12, 55, d1 - d0, C('#e2ddd2'), face);
+      K.ab(x, 0, d0 + 2, 16, 215, 4, C('#8f98a3'));
+      K.ab(x, 0, d1 - 2, 16, 215, 4, C('#8f98a3'));
+      K.ab(x, 211, (d0 + d1) / 2, 16, 4, d1 - d0, C('#8f98a3'));
+    } else {
+      K.ab(x, 0, zc, 12, 270, zl + 12, C('#e2ddd2'), face);
+      K.ab(xi, 0, zc, 1, 10, zl, C('#4a4e58'));
+    }
     for (const [z0, z1] of wins) {
       K.q4([xi, 80, z0], [xi, 80, z1], [xi, 238, z1], [xi, 238, z0], [-sgn, 0, 0], C('#cfe4f2', 2));
       K.ab(xi, 76, (z0 + z1) / 2, 3, 6, z1 - z0 + 8, C('#8f98a3'));
@@ -351,7 +366,7 @@ export function buildStatic(pods: Pod[]): Groups {
       K.ab(xi, 78, z0, 3, 162, 5, C('#8f98a3')); K.ab(xi, 78, z1, 3, 162, 5, C('#8f98a3')); K.ab(xi, 78, (z0 + z1) / 2, 3, 162, 4, C('#8f98a3'));
     }
   };
-  sideWall('left', -1, [[-810, -480], [-380, -60], [40, 360], [440, 640], [740, 940], [1180, 1320]]);
+  sideWall('left', -1, [[-810, -480], [-380, -60], [40, 360], [440, 620], [760, 940], [1180, 1320]], [DORM.DZ0, DORM.DZ1]);
   sideWall('right', 1, [[-810, -480], [-380, -60], [40, 360], [440, 640], [740, 940], [1020, 1220]]);
   // lounge wall TV (console)
   K.use('left');
@@ -360,5 +375,80 @@ export function buildStatic(pods: Pod[]): Groups {
   for (const [dz, y, w, h, cc] of [[-60, 130, 30, 20, '#35d07f'], [-10, 150, 22, 22, '#f5b83d'], [35, 125, 26, 34, '#ff7a9c'], [-45, 165, 60, 8, '#8fd8ff']] as const) {
     K.q4([-1044, y, sz + dz], [-1044, y, sz + dz + w], [-1044, y + h, sz + dz + w], [-1044, y + h, sz + dz], [1, 0, 0], C(cc, 2));
   }
+  buildDorm(K);
   return G;
+}
+
+/**
+ * Dorm ("Asrama") left of the office: hall from the office door, a corridor,
+ * and one bedroom per bed (see BEDS). Room walls are low so the sleepers stay
+ * visible from above. Night lamps glow only while the office is off.
+ */
+function buildDorm(K: Kit): void {
+  const { ZB, ZF } = BOUNDS;
+  const { X0, X1, CX0, CX1, HZ0, HZ1, DZ0, DZ1 } = DORM;
+  const wood = C('#6b4a32'), woodDark = C('#4a3222'), partition = C('#d9d2c4');
+  K.use('main');
+  // corridor + hall floor (light wood), rooms carpeted
+  for (let p = 0; p < 55; p++) {
+    const z0 = ZB + p * ((ZF - ZB) / 55), z1 = ZB + (p + 1) * ((ZF - ZB) / 55);
+    K.q4([X0, 0, z0], [X0, 0, z1], [X1, 0, z1], [X1, 0, z0], K.Y, C(p % 2 ? '#c8b48f' : '#c0ab86'));
+  }
+  const rug = (x0: number, x1: number, z0: number, z1: number, i: number) =>
+    K.q4([x0, 0.3, z0], [x0, 0.3, z1], [x1, 0.3, z1], [x1, 0.3, z0], K.Y, C(i % 2 ? '#4b5876' : '#44506c'));
+  const wallZ = (x0: number, x1: number, z: number) => K.ab((x0 + x1) / 2, 0, z, x1 - x0, 120, 6, partition, { py: C('#bfb6a5') });
+  const wallX = (x: number, z0: number, z1: number) => z1 - z0 > 1 && K.ab(x, 0, (z0 + z1) / 2, 6, 120, z1 - z0, partition, { py: C('#bfb6a5') });
+  BEDS.forEach((b, i) => {
+    const east = b.dir === 1;
+    const rx0 = east ? CX1 : X0, rx1 = east ? X1 : CX0;
+    rug(rx0, rx1, b.z0, b.z1, i);
+    // room walls: the shared walls along z, and the corridor wall with a door gap
+    wallZ(rx0, rx1, b.z0);
+    if (!BEDS.some((o) => o.dir === b.dir && Math.abs(o.z0 - b.z1) < 1)) wallZ(rx0, rx1, b.z1);
+    const cw = east ? CX1 : CX0;
+    wallX(cw, b.z0, b.doorZ - 30);
+    wallX(cw, b.doorZ + 30, b.z1);
+    // bed: frame, legs, mattress, headboard, pillow, folded blanket at the foot
+    const bx = b.x - (b.dir * BED.L) / 2;
+    K.ab(bx, 12, b.z, BED.L, 28, BED.W, wood, { py: woodDark });
+    K.ab(bx, BED.TOP - 8, b.z, BED.L - 6, 8, BED.W - 6, C('#f4f1ea'));
+    K.ab(b.x - b.dir * 3, 0, b.z, 6, 96, BED.W + 8, woodDark, { py: wood });
+    for (const [lx, lz] of [[8, -48], [8, 48], [BED.L - 8, -48], [BED.L - 8, 48]] as const) K.ab(b.x - b.dir * lx, 0, b.z + lz, 6, 12, 6, woodDark);
+    K.ellip([b.x - b.dir * 26, BED.TOP + 6, b.z], K.X, K.Y, K.Z, 15, 6, 34, C('#ffffff'), 14, 8);
+    K.ab(b.x - b.dir * (BED.L - 20), BED.TOP, b.z, 30, 6, BED.W - 8, C('#8a9bc0'));
+    // nightstand + lamp beside the head, on the door side
+    const nx = b.x - b.dir * 26, nz = b.z + BED.W / 2 + 28;
+    K.ab(nx, 0, nz, 40, 50, 38, wood, { py: woodDark });
+    K.cyl(nx, 50, nz, 6, 6, 6, 6, 3, C('#3a3f49'), 12);
+    K.tube([nx, 53, nz], [nx, 70, nz], 1.2, C('#3a3f49'), 6, false);
+    K.use('dormOn');
+    K.cyl(nx, 68, nz, 11, 11, 7, 7, 14, C('#ffd48a', 2), 16);
+    K.disc(nx, 50.5, nz, 18, 18, C('#ffe2a8', 2), C('#ffe2a8', 2), 16);
+    K.use('dormOff');
+    K.cyl(nx, 68, nz, 11, 11, 7, 7, 14, C('#d8cbb0'), 16);
+    K.use('main');
+  });
+  // walls between the hall and the rooms either side of it are the room walls at HZ0/HZ1
+  // back wall and far (west) wall
+  K.use('back');
+  K.ab((X0 + X1) / 2 - 6, 0, ZB - 6, X1 - X0 + 12, 270, 12, C('#e2ddd2'), { pz: C('#e7e2d8') });
+  K.use('dormW');
+  const wx = X0 - 6, zc = (ZB + ZF) / 2;
+  K.ab(wx, 0, zc, 12, 270, ZF - ZB + 12, C('#e2ddd2'), { px: C('#e7e2d8') });
+  for (let i = 0; i < 10; i++) {
+    const b = BEDS.find((x) => x.k === 'w' + i)!;
+    const z0 = b.z0 + 40, z1 = b.z1 - 40, xi = X0 + 0.6;
+    K.q4([xi, 120, z0], [xi, 120, z1], [xi, 230, z1], [xi, 230, z0], [1, 0, 0], C('#1d2a4a', 2));
+    K.ab(xi, 116, (z0 + z1) / 2, 3, 5, z1 - z0 + 8, C('#8f98a3'));
+    K.ab(xi, 228, (z0 + z1) / 2, 3, 5, z1 - z0 + 8, C('#8f98a3'));
+  }
+  // lit sign over the office door, both sides; mat in the hall
+  K.use('dormOn');
+  for (const x of [-1043.5, -1068.5]) K.ab(x, 222, (DZ0 + DZ1) / 2, 1, 10, 56, C('#f5b83d', 2));
+  K.use('dormOff');
+  for (const x of [-1043.5, -1068.5]) K.ab(x, 222, (DZ0 + DZ1) / 2, 1, 10, 56, C('#6b707b'));
+  K.use('main');
+  K.ab((CX1 + X1) / 2, 0.5, (HZ0 + HZ1) / 2, 120, 0.6, 70, C('#7a3a2f'));
+  // corridor runner
+  K.ab((CX0 + CX1) / 2, 0.4, (ZB + ZF) / 2, 70, 0.5, ZF - ZB - 80, C('#2f4a6b'));
 }

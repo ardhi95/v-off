@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { AgentEvent, AgentWithRuntime, CleanerState, StateSnapshot } from '../../src/shared/types.js';
+import type { AgentEvent, AgentWithRuntime, CleanerState, LimitState, StateSnapshot } from '../../src/shared/types.js';
 
 const MAX_EVENTS = 50;
 
@@ -62,6 +62,11 @@ export function useOfficeData(): OfficeData {
     es.addEventListener('config-updated', () => void load());
     // Transcript history finished loading in the background after start.
     es.addEventListener('state-reloaded', () => void load());
+    // Usage limit ran out (office off) or the office opened again (null).
+    es.addEventListener('limit-updated', (e) => {
+      const limit = JSON.parse((e as MessageEvent<string>).data) as LimitState | null;
+      setState((s) => (s ? { ...s, limit } : s));
+    });
     es.addEventListener('cleaner-updated', (e) => {
       const cleaner = JSON.parse((e as MessageEvent<string>).data) as CleanerState;
       setState((s) => (s ? { ...s, cleaner } : s));

@@ -259,3 +259,11 @@ select.field { padding-right: 6px; }
 .save-error { color: #ffa98a; font-size: 14px; margin-right: auto; }
 .save-status { font-size: 14px; }
 code { font-family: var(--mono); font-size: 12px; color: #d3d7e0; }
+
+/* ---- Office off (usage limit): dorm banner and sleeping tags ---- */
+.office-off { z-index: 30003; position: absolute; left: 12px; top: 12px; right: 12px; max-width: 640px; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 14px; background: rgba(20, 24, 44, 0.92); color: #e3e7ff; border: 1px solid rgba(123, 140, 255, 0.45); font-size: 13px; line-height: 1.35; cursor: default; }
+.office-off > span:nth-child(2) { flex: 1; }
+.office-off-dot { width: 10px; height: 10px; border-radius: 50%; background: #7b8cff; flex-shrink: 0; }
+.office-off .cam { flex-shrink: 0; }
+.tag-zzz { color: #c3cbff; font-style: italic; }
+.office-off ~ .stage-hint { display: none; }

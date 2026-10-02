@@ -33,7 +33,8 @@ export const VIEWS: Record<string, CameraView> = {
   ceo: { label: 'Ruang CEO', tx: -775, ty: 80, tz: -650, yaw: 0.35, pitch: 0.5, dist: 950 },
   cto: { label: 'Ruang CTO', tx: 775, ty: 80, tz: -650, yaw: -0.35, pitch: 0.5, dist: 950 },
   santai: { label: 'Ruang santai', tx: 0, ty: 60, tz: 1020, yaw: -0.3, pitch: 0.62, dist: 1700 },
-  atas: { label: 'Tampak atas', tx: 0, ty: 0, tz: 250, yaw: 0, pitch: 1.48, dist: 3900 },
+  asrama: { label: 'Asrama', tx: -1520, ty: 40, tz: 260, yaw: 0.42, pitch: 0.78, dist: 2900 },
+  atas: { label: 'Tampak atas', tx: -465, ty: 0, tz: 250, yaw: 0, pitch: 1.48, dist: 4500 },
 };
 
 export const ROOM_SEATS = {
@@ -142,6 +143,7 @@ export const ROOM_ANCHORS: Record<string, [number, number, number]> = {
   'r:cto': [775, 268, -450],
   'r:tv': [0, 252, -832],
   'r:santai': [0, 240, 1000],
+  'r:asrama': [-1530, 250, -760],
 };
 
 /** Fur, accent, and muzzle colours per species (mockup ZOO), plus the Indonesian name. */
@@ -176,16 +178,97 @@ export const STATUS_STYLE: Record<Status, { label: string; fill: string; bg: str
   idle: { label: 'Istirahat · main', fill: '#ff7a9c', bg: 'rgba(255,122,156,.16)', fg: '#ffb3c6', scr: '#2a2f3a' },
 };
 
+/** Tag and panel style for agents asleep in the dorm (office off). */
+export const SLEEP_STYLE = { label: 'Tidur · limit habis', fill: '#7b8cff', bg: 'rgba(123,140,255,.18)', fg: '#c3cbff' } as const;
+
 // ---- walking routes between a desk seat and a play spot ----
 
 export type XZ = [number, number];
-export type Placement = { kind: 'seat'; seat: SeatXYZ } | { kind: 'spot'; spot: PlaySpot };
+export type Placement = { kind: 'seat'; seat: SeatXYZ } | { kind: 'spot'; spot: PlaySpot } | { kind: 'bed'; bed: Bed };
+
+// ---- dorm ("Asrama"): bedrooms left of the office, used while the usage limit is out ----
+
+/**
+ * The dorm sits outside the office's left wall (x = -1050), across the full
+ * depth. A hall at z 610..770 leads from a door in that wall (z 650..730) to a
+ * corridor at x -1600..-1460. Bedrooms line both sides of the corridor:
+ * 10 on the far (west) side, 7 + 3 on the office side around the hall.
+ */
+export const DORM = {
+  X0: -1980, X1: -1062, CX0: -1600, CX1: -1460, HZ0: 610, HZ1: 770, DZ0: 650, DZ1: 730,
+} as const;
+const DORM_CX = (DORM.CX0 + DORM.CX1) / 2;
+const DORM_HALL_Z = (DORM.DZ0 + DORM.DZ1) / 2;
+
+export interface Bed {
+  k: string;
+  /** Headboard x (inside face). */
+  x: number;
+  /** Bed centre z. */
+  z: number;
+  /** +1: head toward +x (office side), -1: head toward -x. */
+  dir: 1 | -1;
+  /** Room extent along z, for walls and the door gap. */
+  z0: number;
+  z1: number;
+  /** Door in the corridor wall, z centre. */
+  doorZ: number;
+}
+
+/** Bed length and width (cm), mattress top height. */
+export const BED = { L: 205, W: 110, TOP: 48 } as const;
+/** Lying body: feet point sits this far from the headboard. */
+const FEET_FROM_HEAD = 143;
+
+function bedsIn(z0: number, z1: number, n: number, dir: 1 | -1, x: number, prefix: string): Bed[] {
+  const w = (z1 - z0) / n;
+  return Array.from({ length: n }, (_, i) => {
+    const r0 = z0 + i * w, c = r0 + w / 2;
+    return { k: `${prefix}${i}`, x, z: c - 30, dir, z0: r0, z1: r0 + w, doorZ: c + 60 };
+  });
+}
+
+/** 20 beds: office side first (nearest the door), then the far side. */
+export const BEDS: Bed[] = [
+  ...bedsIn(-840, DORM.HZ0, 7, 1, DORM.X1 - 8, 'e'),
+  ...bedsIn(DORM.HZ1, 1350, 3, 1, DORM.X1 - 8, 'e7'),
+  ...bedsIn(-840, 1350, 10, -1, DORM.X0 + 8, 'w'),
+];
+
+/** Where the lying body's feet are (body extends toward the headboard). */
+export function bedFeet(b: Bed): XZ {
+  return [b.x - b.dir * FEET_FROM_HEAD, b.z];
+}
+
+/** Heading that lays a body (built standing, feet at origin) head-first toward the headboard. */
+export function bedYaw(b: Bed): number {
+  return b.dir === 1 ? -Math.PI / 2 : Math.PI / 2;
+}
+
+/** Floor point at the foot end of the bed, inside the room. */
+export function bedFoot(b: Bed): XZ {
+  return [b.x - b.dir * (BED.L + 45), b.z];
+}
+
+/** Every visible agent gets a bed in roster order while the office is off; extras stay put. */
+export function assignBeds(ids: string[]): Map<string, Bed> {
+  const out = new Map<string, Bed>();
+  ids.slice(0, BEDS.length).forEach((id, i) => out.set(id, BEDS[i]!));
+  return out;
+}
 
 const CORRIDOR_X = 950;
 const LOUNGE_Z = 620;
 
 /** From a placement out to the shared corridor network (ends on z ≈ 620–640). */
 export function exitChain(p: Placement): XZ[] {
+  if (p.kind === 'bed') {
+    const b = p.bed, doorX = b.dir === 1 ? DORM.CX1 : DORM.CX0;
+    return [
+      bedFeet(b), bedFoot(b), [doorX, b.doorZ], [DORM_CX, b.doorZ], [DORM_CX, DORM_HALL_Z],
+      [DORM.X1, DORM_HALL_Z], [-CORRIDOR_X, DORM_HALL_Z], [-CORRIDOR_X, LOUNGE_Z],
+    ];
+  }
   if (p.kind === 'spot') {
     const s = p.spot;
     const via = s.via ?? [[s.x, 640]];

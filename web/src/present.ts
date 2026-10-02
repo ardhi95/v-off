@@ -1,4 +1,4 @@
-import type { AgentEvent, AgentWithRuntime, Department, EventKind, Status } from '../../src/shared/types.js';
+import type { AgentEvent, AgentWithRuntime, Department, EventKind, LimitState, Status } from '../../src/shared/types.js';
 import type { PlaySpot } from './office/layout.js';
 
 // Pure presentation helpers for the Team Room UI (labels, numbers, filters).
@@ -112,8 +112,9 @@ export function feedLine(ev: AgentEvent, agents: AgentWithRuntime[], departments
   return { who, what: verb ? `${verb} ${ev.detail}` : detail, dot };
 }
 
-/** Where the agent is: play spot, private room, or team desk. */
-export function locationOf(a: AgentWithRuntime, departments: Department[], spot?: PlaySpot): string {
+/** Where the agent is: dorm bed, play spot, private room, or team desk. */
+export function locationOf(a: AgentWithRuntime, departments: Department[], spot?: PlaySpot, asleep = false): string {
+  if (asleep) return 'Asrama · tidur di kamar';
   if (a.walker) return 'Berkeliling kantor';
   if (spot) return `Ruang santai · ${spot.act}`;
   if (a.seat && 'room' in a.seat) return a.seat.room === 'ceo' ? 'Ruang CEO' : 'Ruang CTO';
@@ -158,4 +159,14 @@ export function inkOn(bg: string): string {
   const vsWhite = 1.05 / (L + 0.05);
   const vsDark = (L + 0.05) / (luminance('#000000') + 0.05);
   return vsWhite >= vsDark ? '#ffffff' : '#000000';
+}
+
+/** Banner text while the office is off: why, and until when. */
+export function officeOffText(limit: LimitState): string {
+  const time = (ts: number) => new Date(ts).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+  const sameDay = (a: number, b: number) => new Date(a).toDateString() === new Date(b).toDateString();
+  const until = limit.resetsAt
+    ? `sampai limit reset ${sameDay(limit.resetsAt, limit.since) ? 'pukul' : new Date(limit.resetsAt).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' }) + ','} ${time(limit.resetsAt)}`
+    : `sampai agent bisa bekerja lagi (paling lambat ${time(limit.until)})`;
+  return `Limit pemakaian habis. Kantor off, semua agent tidur di Asrama ${until}.`;
 }

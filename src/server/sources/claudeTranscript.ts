@@ -1,5 +1,5 @@
 import type { Usage } from '../../shared/types.js';
-import { clip, isSubagentTool, matchBlock, summarizeTool, toolKind } from '../summarize.js';
+import { clip, isSubagentTool, matchBlock, matchUsageLimit, summarizeTool, toolKind } from '../summarize.js';
 import type { NormalizedEvent, SessionContext } from './types.js';
 
 // Claude Code writes one JSONL transcript per session under
@@ -66,7 +66,10 @@ export class TranscriptParser {
       if (sidechain) return out;
       if (line.isApiErrorMessage === true) {
         const msg = contentText(message.content) || 'API Error';
-        out.push({ ...base, signal: 'error', kind: 'error', detail: clip(msg), block: matchBlock(msg) ?? matchBlock('API Error') ?? undefined });
+        out.push({
+          ...base, signal: 'error', kind: 'error', detail: clip(msg), block: matchBlock(msg) ?? matchBlock('API Error') ?? undefined,
+          limit: matchUsageLimit(msg, ts) ?? undefined,
+        });
         return out;
       }
       const blocks = Array.isArray(message.content) ? message.content : [];

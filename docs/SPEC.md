@@ -161,7 +161,18 @@ Setiap agent punya `match: MatchRule[]` yang dievaluasi berurutan:
 - `{ env: "V_OFF_AGENT=raka" }`: hook bisa meneruskan variabel ini
 - `{ sessionName: "..." }`
 
-Sesi yang tidak cocok dengan agent mana pun masuk ke tamu "Agent tanpa nama" di meja kosong, dan pengguna bisa menetapkannya ke agent tertentu dari Pengaturan.
+Daftar agent adalah **katalog peran**, bukan staf wajib. Sesi yang tidak cocok dengan aturan di atas
+diklasifikasikan ke peran terdekat yang ada di katalog (dan aktif), berurutan:
+
+1. Peran yang disebut di sesi: `/v-off-roles <id|peran>` atau "sebagai <peran>".
+2. Skor jejak kerja tertinggi dari path file dan perintah (mis. `.kt` → Android, Dockerfile → DevSecOps, file
+   tes → QA). Sesi baru pindah peran hanya jika peran lain unggul 1,5×.
+3. Cadangan: Tech Lead untuk sesi kode, Project Manager untuk sesi tanpa kode, lalu agent pertama mana pun.
+
+Klasifikasi berjalan lokal dengan kata kunci; isi prompt hanya dipindai dan tidak disimpan. Ruang Tim hanya
+menampilkan peran yang punya sesi (30 hari terakhir) atau status webhook, ditambah office boy. Tamu "Agent tanpa
+nama" hanya muncul jika katalog tidak punya peran aktif sama sekali. Pengguna tetap bisa memaksa pemetaan lewat
+aturan `match` di Pengaturan.
 
 ## 8. Office boy (Udin), pembersih cache
 

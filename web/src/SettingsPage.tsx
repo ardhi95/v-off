@@ -153,14 +153,14 @@ export function SettingsPage({ agents: live, onToast, onDirtyChange }: {
     <div className="settings">
       <div>
         <h1 className="page-title" style={{ margin: 0 }}>Pengaturan Tim</h1>
-        <p className="muted report-desc">Beri nama, peran, departemen, dan warna untuk setiap agent yang muncul di lantai kantor.</p>
+        <p className="muted report-desc">Katalog peran. Setiap sesi agent diklasifikasikan ke peran terdekat di sini, dan karakternya muncul di lantai selama ada sesi.</p>
       </div>
 
       <div className="settings-layout">
         <section className="panel card" aria-labelledby="h-ag">
           <div className="card-head">
             <h2 id="h-ag" className="card-title">Daftar agent</h2>
-            <span className="mono muted small">{shown} dari {draft.agents.length} tampil di lantai</span>
+            <span className="mono muted small">{shown} dari {draft.agents.length} peran aktif</span>
           </div>
           <div className="table-scroll">
             <div className="agents-table">
@@ -172,7 +172,7 @@ export function SettingsPage({ agents: live, onToast, onDirtyChange }: {
                 <span>Tool</span>
                 <span>Hewan</span>
                 <span>Warna baju</span>
-                <span>Tampil</span>
+                <span>Aktif</span>
                 <span />
               </div>
               {draft.agents.map((a) => {
@@ -212,7 +212,7 @@ export function SettingsPage({ agents: live, onToast, onDirtyChange }: {
                           <input type="color" value={a.shirt} onChange={(e) => setAgent(a.id, { shirt: e.target.value })} />
                         </label>
                       </div>
-                      <label className="toggle"><input type="checkbox" checked={!a.hidden} onChange={(e) => setAgent(a.id, { hidden: !e.target.checked || undefined })} /><span className="sr-only">Tampilkan {a.name} di lantai</span></label>
+                      <label className="toggle"><input type="checkbox" checked={!a.hidden} onChange={(e) => setAgent(a.id, { hidden: !e.target.checked || undefined })} /><span className="sr-only">Aktifkan peran {a.name}</span></label>
                       <button type="button" className={`btn btn-ghost btn-sm${errs.length ? ' has-error' : ''}`} aria-expanded={isOpen} aria-controls={`detail-${a.id}`} onClick={() => setOpen(isOpen ? null : a.id)}>
                         {isOpen ? 'Tutup' : 'Detail'}
                       </button>

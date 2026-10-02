@@ -1,4 +1,6 @@
 import { apiFailureBlock, clip, isSubagentTool, matchBlock, matchUsageLimit, notifyBlock, summarizeTool, toolKind } from '../summarize.js';
+import { explicitRole } from '../roleGuess.js';
+import { roleHintFor } from './claudeTranscript.js';
 import type { NormalizedEvent, SessionContext } from './types.js';
 
 // Claude Code hook payloads arrive on stdin of the hook command as JSON and are
@@ -51,14 +53,18 @@ export function parseHookPayload(payload: unknown, now: number, env?: Record<str
     case 'SessionEnd':
       return [{ ...base, signal: 'end', kind: 'stop', detail: `Sesi berakhir${s(p.reason) ? ` (${s(p.reason)})` : ''}` }];
     case 'UserPromptSubmit': {
-      // Privacy: never forward the prompt text, only its size.
-      const len = s(p.prompt)?.length ?? 0;
-      return [{ ...base, signal: 'prompt', kind: 'prompt', detail: `Prompt baru (${len} karakter)` }];
+      // Privacy: never forward the prompt text, only its size (scanned for a named role, not kept).
+      const prompt = s(p.prompt) ?? '';
+      const explicit = explicitRole(prompt);
+      return [{
+        ...base, signal: 'prompt', kind: 'prompt', detail: `Prompt baru (${prompt.length} karakter)`,
+        roleHint: explicit ? { explicit } : undefined,
+      }];
     }
     case 'PreToolUse':
       return [{
         ...base, signal: 'tool-pre', kind: toolKind(tool), detail: summarizeTool(tool, p.tool_input),
-        subagent: isSubagentTool(tool), toolId,
+        subagent: isSubagentTool(tool), toolId, roleHint: roleHintFor(tool, p.tool_input),
       }];
     case 'PostToolUse': {
       if (responseIsError(result)) {

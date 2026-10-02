@@ -33,11 +33,11 @@ describe('Store', () => {
     expect(store.snapshot().events[0]).toMatchObject({ agentId: 'raka', kind: 'edit' });
   });
 
-  it('unmatched sessions become guests; V_OFF_AGENT from a hook re-assigns them', () => {
+  it('unmatched sessions take a role, never a guest; V_OFF_AGENT from a hook re-assigns them', () => {
     const { store, now } = setup();
     store.ingest([{ ...usageEv(now(), 'abcdef123456'), ctx: { cwd: '/elsewhere' } }]);
-    const guest = store.snapshot().agents.find((a) => a.id === 'tamu-abcdef12');
-    expect(guest).toMatchObject({ guest: true, name: 'Agent tanpa nama' });
+    expect(store.snapshot().agents.some((a) => a.guest)).toBe(false);
+    expect(store.snapshot().agents.find((a) => a.id === 'wulan')!.runtime.sessionId).toBe('abcdef123456');
     store.ingest(parseHookPayload({ session_id: 'abcdef123456', hook_event_name: 'Stop' }, now(), { V_OFF_AGENT: 'nina' }));
     expect(store.snapshot().agents.find((a) => a.id === 'nina')!.runtime.status).toBe('simak');
   });

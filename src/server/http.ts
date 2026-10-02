@@ -1,4 +1,6 @@
+import fs from 'node:fs/promises';
 import http from 'node:http';
+import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import type { Config, Status } from '../shared/types.js';
 import { saveConfig, validateConfig, withDefaults } from './config.js';
@@ -14,6 +16,48 @@ export interface ServerOptions {
   port?: number;
   /** Persist config on PUT /api/config. Tests pass a temp file. */
   saveConfig?: (c: Config) => Promise<void>;
+  /** Built web UI (dist/web). Served for non-API GET requests when present. */
+  webRoot?: string;
+}
+
+const MIME: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.json': 'application/json; charset=utf-8',
+};
+
+/** Serve a file from webRoot; unknown paths fall back to index.html. Returns false if no UI is built. */
+async function serveStatic(webRoot: string, pathname: string, res: http.ServerResponse): Promise<boolean> {
+  const root = path.resolve(webRoot);
+  let file = path.resolve(root, '.' + decodeURIComponent(pathname));
+  // Never serve outside webRoot.
+  if (file !== root && !file.startsWith(root + path.sep)) file = path.join(root, 'index.html');
+  let data: Buffer;
+  try {
+    const st = await fs.stat(file);
+    if (st.isDirectory()) file = path.join(file, 'index.html');
+    data = await fs.readFile(file);
+  } catch {
+    try {
+      file = path.join(root, 'index.html');
+      data = await fs.readFile(file);
+    } catch {
+      return false;
+    }
+  }
+  const ext = path.extname(file);
+  res.writeHead(200, {
+    'content-type': MIME[ext] ?? 'application/octet-stream',
+    'cache-control': ext === '.html' ? 'no-store' : 'public, max-age=31536000, immutable',
+    'x-content-type-options': 'nosniff',
+  });
+  res.end(data);
+  return true;
 }
 
 class HttpError extends Error {
@@ -192,9 +236,10 @@ export function createServer(store: Store, opts: ServerOptions = {}): http.Serve
         throw new HttpError(501, 'Pembersihan nyata belum tersedia. Office boy masih mode dry-run.');
       }
 
-      if (route === 'GET /' || route === 'GET /index.html') {
+      if (method === 'GET' && !url.pathname.startsWith('/api/')) {
+        if (opts.webRoot && (await serveStatic(opts.webRoot, url.pathname, res))) return;
         res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
-        res.end('v-off berjalan. UI Ruang Tim hadir di Fase 2. API: /api/state, /api/stream\n');
+        res.end('v-off berjalan, tetapi UI belum di-build. Jalankan: npm run build\n');
         return;
       }
 

@@ -145,3 +145,25 @@ describe('config file', () => {
     await fs.rm(dir, { recursive: true });
   });
 });
+
+describe('static web UI', () => {
+  it('serves files from webRoot, falls back to index.html, never leaves webRoot', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'v-off-web-'));
+    await fs.mkdir(path.join(dir, 'assets'));
+    await fs.writeFile(path.join(dir, 'index.html'), '<!doctype html><title>v-off</title>');
+    await fs.writeFile(path.join(dir, 'assets', 'app.js'), 'console.log(1)');
+    const s = createServer(new Store(defaultConfig()), { webRoot: dir });
+    const addr = await listen(s, '127.0.0.1', 0);
+    const u = `http://127.0.0.1:${addr.port}`;
+    const index = await fetch(`${u}/`);
+    expect(index.headers.get('content-type')).toContain('text/html');
+    expect(await index.text()).toContain('v-off');
+    const js = await fetch(`${u}/assets/app.js`);
+    expect(js.headers.get('content-type')).toContain('javascript');
+    expect(await (await fetch(`${u}/laporan`)).text()).toContain('v-off');
+    expect(await (await fetch(`${u}/%2e%2e/%2e%2e/etc/passwd`)).text()).not.toContain('root:');
+    expect((await fetch(`${u}/api/nope`)).status).toBe(404);
+    await new Promise<void>((r) => s.close(() => r()));
+    await fs.rm(dir, { recursive: true });
+  });
+});

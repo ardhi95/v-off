@@ -5,14 +5,17 @@ Lihat `CLAUDE.md` (panduan kerja) dan `docs/SPEC.md` (spesifikasi).
 
 ## Status
 
-Fase 1 (kerangka & data) selesai: server lokal, pembacaan transkrip Claude Code,
-endpoint hook, REST dan SSE, aturan status, serta pemetaan agent. UI 3D menyusul di Fase 2.
+- Fase 1 (kerangka & data): server lokal, pembacaan transkrip Claude Code, endpoint hook,
+  REST dan SSE, aturan status, serta pemetaan agent.
+- Fase 2 (Ruang Tim 3D): kantor 3D sesuai mockup, karakter hewan dengan ekspresi per status,
+  label nama, kamera orbit dengan preset, data live lewat SSE.
 
 ## Menjalankan
 
 ```bash
 npm install
-npm run dev          # server di http://127.0.0.1:4747
+npm run dev          # server :4747 + UI dev di http://127.0.0.1:5173
+npm run build && npm start   # UI hasil build di http://127.0.0.1:4747
 npm test
 ```
 

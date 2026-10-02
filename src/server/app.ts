@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type http from 'node:http';
 import { loadConfig } from './config.js';
 import { createServer, listen } from './http.js';
@@ -31,7 +32,9 @@ export async function startApp(opts: { host?: string; port?: number } = {}): Pro
   const ticker = setInterval(() => store.tick(), 5000);
   ticker.unref();
 
-  const server = createServer(store);
+  // dist/server/app.js -> dist/web
+  const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../web');
+  const server = createServer(store, { webRoot });
   const addr = await listen(server, opts.host ?? '127.0.0.1', opts.port ?? 4747);
   const host = addr.address.includes(':') ? `[${addr.address}]` : addr.address;
   return {

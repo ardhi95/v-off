@@ -52,10 +52,10 @@ Kerjakan fase demi fase. Commit di akhir tiap fase dengan tes yang lolos.
 
 ```
 npm install
-npm run dev        # server (tsx watch). Vite UI ditambahkan di Fase 2
-npm test           # unit test (vitest)
-npm run typecheck
-npm run build      # tsc -> dist/
+npm run dev        # server (tsx watch, :4747) + Vite UI (:5173, proxy /api)
+npm test           # unit test (vitest), server + logika web
+npm run typecheck  # server dan web
+npm run build      # tsc -> dist/server, vite -> dist/web (disajikan server di :4747)
 ```
 
 Variabel lingkungan: `V_OFF_PORT` (default 4747), `V_OFF_HOST` (default 127.0.0.1),
@@ -68,4 +68,8 @@ Variabel lingkungan: `V_OFF_PORT` (default 4747), `V_OFF_HOST` (default 127.0.0.
 - `src/server/sources/`: adapter sumber data di balik `SourceAdapter`. `claudeHook.ts` (payload hook),
   `claudeTranscript.ts` (parser JSONL), `claudeTranscriptSource.ts` (tail file dengan polling).
 - `src/server/status.ts`: aturan status (SPEC §6), fungsi murni. `matcher.ts`: pemetaan sesi ke agent (SPEC §7).
-- `src/server/store.ts`: state di memori, feed, token/biaya, laporan. `http.ts`: REST + SSE (SPEC §9).
+- `src/server/store.ts`: state di memori, feed, token/biaya, laporan. `http.ts`: REST + SSE (SPEC §9), plus UI statis.
+- `web/src/office/`: renderer WebGL hasil port dari `Main.dc.html` (opsi b). `kit.ts` (geometri),
+  `staticScene.ts` (lantai & furnitur), `characters.ts` (hewan & ekspresi), `people.ts` (kursi, tempat main,
+  cache geometri per agent), `camera.ts` (orbit & preset), `renderer.ts` (loop, office boy, label).
+- `web/src/OfficeStage.tsx`: kanvas, label nama, kontrol kamera. `api.ts`: `/api/state` + SSE.

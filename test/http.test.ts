@@ -4,7 +4,7 @@ import path from 'node:path';
 import type http from 'node:http';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { defaultConfig } from '../src/server/defaults.js';
-import { createServer, listen } from '../src/server/http.js';
+import { closeServer, createServer, listen } from '../src/server/http.js';
 import { Store } from '../src/server/store.js';
 import type { Config, StateSnapshot } from '../src/shared/types.js';
 
@@ -21,7 +21,7 @@ beforeEach(async () => {
   base = `http://127.0.0.1:${addr.port}`;
 });
 afterEach(async () => {
-  await new Promise<void>((r) => server.close(() => r()));
+  await closeServer(server);
 });
 
 const post = (p: string, body: unknown, headers: Record<string, string> = {}) =>
@@ -171,7 +171,21 @@ describe('static web UI', () => {
     expect(await (await fetch(`${u}/laporan`)).text()).toContain('v-off');
     expect(await (await fetch(`${u}/%2e%2e/%2e%2e/etc/passwd`)).text()).not.toContain('root:');
     expect((await fetch(`${u}/api/nope`)).status).toBe(404);
-    await new Promise<void>((r) => s.close(() => r()));
+    await closeServer(s);
     await fs.rm(dir, { recursive: true });
+  });
+});
+
+describe('closeServer', () => {
+  it('finishes quickly even with an open SSE stream', async () => {
+    const s = createServer(new Store(defaultConfig()));
+    const addr = await listen(s, '127.0.0.1', 0);
+    const ctrl = new AbortController();
+    const res = await fetch(`http://127.0.0.1:${addr.port}/api/stream`, { signal: ctrl.signal });
+    expect(res.status).toBe(200);
+    const t0 = Date.now();
+    await closeServer(s);
+    expect(Date.now() - t0).toBeLessThan(1000);
+    ctrl.abort();
   });
 });

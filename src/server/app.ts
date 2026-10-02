@@ -4,7 +4,7 @@ import type http from 'node:http';
 import { scan, scanTargets, tmpTargets } from './cleaner.js';
 import { loadConfig } from './config.js';
 import { loadHistory, saveHistory } from './history.js';
-import { createServer, listen } from './http.js';
+import { closeServer, createServer, listen } from './http.js';
 import { claudeHome, expandHome } from './paths.js';
 import { ClaudeTranscriptSource } from './sources/claudeTranscriptSource.js';
 import type { SourceAdapter } from './sources/types.js';
@@ -101,7 +101,7 @@ export async function startApp(opts: { host?: string; port?: number } = {}): Pro
         await persist();
       }
       for (const s of sources) s.stop();
-      await new Promise<void>((r) => server.close(() => r()));
+      await closeServer(server);
     },
   };
 }

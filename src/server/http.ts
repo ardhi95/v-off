@@ -287,6 +287,18 @@ export function createServer(store: Store, opts: ServerOptions = {}): http.Serve
   return server;
 }
 
+/**
+ * Stop the server without waiting on open connections. server.close() alone
+ * waits for keep-alive sockets (Node 18) and never finishes while an SSE
+ * client is connected (any Node version).
+ */
+export function closeServer(server: http.Server): Promise<void> {
+  return new Promise((resolve) => {
+    server.close(() => resolve());
+    server.closeAllConnections?.();
+  });
+}
+
 export async function listen(server: http.Server, host = '127.0.0.1', port = 4747): Promise<AddressInfo> {
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);

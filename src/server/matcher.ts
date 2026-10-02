@@ -49,7 +49,15 @@ export function ruleMatches(rule: MatchRule, ctx: SessionContext): boolean {
   return false;
 }
 
-/** SPEC §7: agents are checked in order, each agent's rules in order. First match wins. */
+/**
+ * SPEC §7: agents are checked in order, each agent's rules in order. First match wins.
+ * `env` rules (V_OFF_AGENT) are an explicit choice, so they are tried across all agents
+ * before folder/branch rules; otherwise an earlier agent's cwdGlob would override it.
+ */
 export function matchAgent(agents: Agent[], ctx: SessionContext): Agent | undefined {
-  return agents.find((a) => !a.walker && a.match.some((r) => ruleMatches(r, ctx)));
+  const candidates = agents.filter((a) => !a.walker);
+  return (
+    candidates.find((a) => a.match.some((r) => 'env' in r && ruleMatches(r, ctx))) ??
+    candidates.find((a) => a.match.some((r) => ruleMatches(r, ctx)))
+  );
 }

@@ -1,4 +1,5 @@
 import type { EventKind, EventSource, Usage } from '../../shared/types.js';
+import type { RoleHint } from '../roleGuess.js';
 import type { BlockMatch } from '../summarize.js';
 
 /** What each normalized event means for the session's status (SPEC §6). */
@@ -51,6 +52,8 @@ export interface NormalizedEvent {
   limitEnd?: boolean;
   /** The event closes a tool call that a 'tool-pre' opened. */
   endsTool?: boolean;
+  /** Which office role the session looks like; guests are mapped from it (roleGuess.ts). */
+  roleHint?: RoleHint;
   ctx?: SessionContext;
 }
 

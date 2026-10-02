@@ -30,7 +30,9 @@ describe('startApp', () => {
     expect(res.status).toBe(200);
     await reloaded;
     const state = (await (await fetch(`${app.url}/api/state`)).json()) as { agents: { id: string }[] };
-    expect(state.agents.some((a) => a.id === 'tamu-hist-1')).toBe(true);
+    // Classified (fallback role), not a guest.
+    expect(state.agents.some((a) => a.id === 'wulan')).toBe(true);
+    expect(state.agents.some((a) => a.id.startsWith('tamu-'))).toBe(false);
     const t0 = Date.now();
     await app.close();
     expect(Date.now() - t0).toBeLessThan(1500);

@@ -32,7 +32,8 @@ describe('HTTP API', () => {
     const res = await fetch(`${base}/api/state`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as StateSnapshot;
-    expect(body.agents).toHaveLength(18);
+    // Roster is a catalog: only agents with sessions show; the office boy always does.
+    expect(body.agents.map((a) => a.id)).toEqual(['udin']);
     expect(body.departments.length).toBeGreaterThan(0);
     expect(body.cleaner.mode).toBe('dry-run');
   });

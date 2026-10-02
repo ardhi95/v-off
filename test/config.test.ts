@@ -35,10 +35,11 @@ describe('validateConfig', () => {
 });
 
 describe('Store config updates', () => {
-  it('emits config-updated and re-matches guests to new rules', () => {
+  it('emits config-updated and re-matches classified sessions to new rules', () => {
     const store = new Store(defaultConfig());
     store.ingest([{ ts: 1, sessionId: 'abcdef99', source: 'claude-code', channel: 'hook', signal: 'start', kind: 'message', detail: 'x', ctx: { cwd: '/w/new-repo' } }]);
-    expect(store.snapshot().agents.some((a) => a.id === 'tamu-abcdef99')).toBe(true);
+    // No rule and no evidence yet: the fallback role (Project Manager) takes it.
+    expect(store.snapshot().agents.find((a) => a.id === 'wulan')!.runtime.sessionId).toBe('abcdef99');
     const seen: unknown[] = [];
     store.on('config-updated', (c) => seen.push(c));
     const c = defaultConfig();
@@ -46,7 +47,7 @@ describe('Store config updates', () => {
     store.setConfig(c);
     expect(seen).toHaveLength(1);
     expect(store.snapshot().agents.find((a) => a.id === 'raka')!.runtime.sessionId).toBe('abcdef99');
-    expect(store.snapshot().agents.some((a) => a.id === 'tamu-abcdef99')).toBe(false);
+    expect(store.snapshot().agents.some((a) => a.id === 'wulan')).toBe(false);
   });
 
   it('lists models seen with pricing status', () => {

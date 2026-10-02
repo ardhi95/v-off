@@ -1,4 +1,5 @@
 import type { Block, Status, StatusRules } from '../shared/types.js';
+import type { RoleHint, RoleKey } from './roleGuess.js';
 import type { NormalizedEvent } from './sources/types.js';
 
 /** Per-session facts the status rules work on (SPEC §6). */
@@ -28,6 +29,12 @@ export interface SessionState {
   /** Tool calls in flight by tool_use_id, and ids whose end arrived before their start. */
   openTools: Set<string>;
   earlyEnds: Set<string>;
+  /** Role classification (roleGuess.ts): evidence points, the last explicitly named role, and how it was mapped. */
+  roleScores?: Map<RoleKey, number>;
+  roleExplicit?: RoleHint['explicit'];
+  autoRole?: 'explicit' | 'evidence' | 'fallback';
+  /** The session touched code; picks the fallback role while there is no evidence. */
+  codeTouched?: boolean;
 }
 
 export function newSession(sessionId: string, agentId: string, ts: number): SessionState {

@@ -70,6 +70,13 @@ Variabel lingkungan: `V_OFF_PORT` (default 4747), `V_OFF_HOST` (default 127.0.0.
 - `src/server/sources/`: adapter sumber data di balik `SourceAdapter`. `claudeHook.ts` (payload hook),
   `claudeTranscript.ts` (parser JSONL), `claudeTranscriptSource.ts` (tail file dengan polling).
 - `src/server/status.ts`: aturan status (SPEC §6), fungsi murni. `matcher.ts`: pemetaan sesi ke agent (SPEC §7).
+  `roleGuess.ts`: roster = **katalog peran**, bukan staf wajib. Setiap sesi yang tak cocok aturan pemetaan
+  diklasifikasikan ke peran terdekat (kata kunci lokal, ditiru dari `roleFor` di virtual-agents-office): peran
+  eksplisit (`/v-off-roles raka`, "sebagai QA Engineer"), lalu skor jejak kerja tertinggi di antara peran yang ada
+  (pindah hanya jika peran lain unggul 1,5×), lalu cadangan Tech Lead (sesi kode) / Project Manager. Tidak ada tamu
+  kecuali roster kosong. Peran tanpa sesi disembunyikan dari Ruang Tim (`Store.isVisible`); toggle "Aktif" di
+  Pengaturan (`hidden`) mengeluarkan peran dari klasifikasi. Aturan cwd/branch/`V_OFF_AGENT` tidak pernah ditimpa.
+  Isi prompt hanya dipindai, tidak disimpan.
 - `src/server/cleaner.ts`: pemindai cache office boy (SPEC §8), **dry-run saja**: hanya mengukur, tidak pernah
   menghapus atau mengikuti symlink. Jalan 3 detik setelah start lalu tiap `cleaner.intervalMin` menit.
 - `src/server/history.ts`: `~/.v-off/history.json`, riwayat hambatan (31 hari). Token dan sesi dibangun ulang dari

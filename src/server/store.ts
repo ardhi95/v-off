@@ -6,6 +6,7 @@ import type {
 } from '../shared/types.js';
 import { clip } from './summarize.js';
 import { matchAgent } from './matcher.js';
+import { agentForRole, closestRole, fallbackAgent, roleFromText, type RoleHint, type RoleKey } from './roleGuess.js';
 import type { NormalizedEvent, SessionContext, Sink } from './sources/types.js';
 import { applyEvent, computeStatus, newSession, type SessionState } from './status.js';
 
@@ -128,7 +129,12 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
   setConfig(config: Config): void {
     this.config = config;
     for (const s of this.sessions.values()) {
-      if (!this.agentById(s.agentId) || s.agentId.startsWith('tamu-')) this.assign(s, {});
+      if (!this.agentById(s.agentId) || s.agentId.startsWith('tamu-') || s.autoRole) {
+        const before = s.agentId;
+        this.assign(s, {});
+        this.autoMap(s);
+        if (s.agentId !== before) this.moveSession(s, before, s.agentId, false);
+      }
     }
     this.pruneGuests();
     this.refreshAll(false, true);
@@ -178,6 +184,7 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
       const mark = this.replayMarks?.get(s.sessionId);
       if (opts.historic && mark !== undefined && ev.ts <= mark && ev.signal !== 'usage') continue;
       if (ev.signal !== 'usage') s.maxTs = Math.max(s.maxTs, ev.ts);
+      if (ev.roleHint) this.applyRoleHint(s, ev.roleHint, !opts.historic);
 
       const hadBlock = !!s.block;
       applyEvent(s, ev);
@@ -325,6 +332,16 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
     return [...this.config.agents, ...this.guests.values()];
   }
 
+  /**
+   * The roster is a catalog: an agent shows in the office only while a session (last 30 days)
+   * is classified into it or a webhook reports its status. The office boy always walks.
+   */
+  isVisible(agent: Agent): boolean {
+    if (agent.walker || this.guests.has(agent.id) || this.flags.get(agent.id)?.external) return true;
+    for (const s of this.sessions.values()) if (s.agentId === agent.id) return true;
+    return false;
+  }
+
   agentById(id: string): Agent | undefined {
     return this.config.agents.find((a) => a.id === id) ?? this.guests.get(id);
   }
@@ -337,7 +354,7 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
 
   snapshot(): StateSnapshot {
     return {
-      agents: this.agents().map((a) => this.agentView(a)),
+      agents: this.agents().filter((a) => this.isVisible(a)).map((a) => this.agentView(a)),
       departments: this.config.departments,
       events: this.feed.slice(-SNAPSHOT_EVENTS).reverse(),
       cleaner: this.cleaner,
@@ -471,10 +488,12 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
       s = newSession(ev.sessionId, '', ev.ts);
       this.sessions.set(ev.sessionId, s);
       this.assign(s, ev.ctx ?? {});
-    } else if (ev.ctx?.env && s.agentId.startsWith('tamu-')) {
+    } else if (ev.ctx?.env && (s.agentId.startsWith('tamu-') || s.autoRole)) {
       // A hook can carry V_OFF_AGENT after a transcript created the session as a guest.
+      const before = s.agentId;
       this.assign(s, ev.ctx);
-      this.pruneGuests();
+      this.autoMap(s);
+      if (s.agentId !== before) this.moveSession(s, before, s.agentId, false);
     }
     return s;
   }
@@ -484,10 +503,15 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
     const agent = matchAgent(this.config.agents, full);
     if (agent) {
       s.agentId = agent.id;
+      s.autoRole = undefined;
       return;
     }
-    // SPEC §7: unmatched sessions become "Agent tanpa nama" guests.
+    // Unmatched sessions take the closest role in the roster (roleGuess.ts). Only an
+    // office without any working agent still gets an "Agent tanpa nama" guest.
     const id = `tamu-${s.sessionId.slice(0, 8)}`;
+    s.agentId = id;
+    this.autoMap(s);
+    if (s.agentId !== id) return;
     if (!this.guests.has(id)) {
       this.guests.set(id, {
         id, name: 'Agent tanpa nama', role: 'Tamu', short: 'Tamu', dept: 'tamu', animal: 'dog',
@@ -495,6 +519,58 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
       });
     }
     s.agentId = id;
+  }
+
+  /** Collect a role hint for a session not claimed by a match rule and re-classify it. */
+  private applyRoleHint(s: SessionState, hint: RoleHint, notify: boolean): void {
+    if (!s.agentId.startsWith('tamu-') && !s.autoRole) return; // a match rule chose this agent
+    if (hint.explicit) s.roleExplicit = hint.explicit;
+    if (hint.code) s.codeTouched = true;
+    if (hint.evidence) {
+      s.roleScores ??= new Map();
+      for (const r of hint.evidence) s.roleScores.set(r, (s.roleScores.get(r) ?? 0) + 1);
+    }
+    const before = s.agentId;
+    this.autoMap(s);
+    if (s.agentId !== before) this.moveSession(s, before, s.agentId, notify);
+  }
+
+  /**
+   * Classify a session into the closest role in the roster: an explicitly named role first,
+   * then the highest evidence score, then the fallback (Tech Lead for code, PM otherwise).
+   */
+  private autoMap(s: SessionState): void {
+    if (!s.agentId.startsWith('tamu-') && !s.autoRole) return;
+    // Agents switched off in Pengaturan ("Tampil") are not offered as roles.
+    const agents = this.config.agents.filter((a) => !a.walker && !a.hidden);
+    const ex = s.roleExplicit;
+    let agent = ex?.agentId ? agents.find((a) => a.id === ex.agentId) : ex?.role ? agentForRole(agents, ex.role) : undefined;
+    let how: SessionState['autoRole'] = 'explicit';
+    if (!agent && s.roleScores?.size) {
+      const available = new Set(agents.map((a) => roleFromText(a.role)).filter((r): r is RoleKey => !!r));
+      const current = s.autoRole === 'evidence' ? roleFromText(this.agentById(s.agentId)?.role ?? '') : undefined;
+      const role = closestRole(s.roleScores, available, current);
+      agent = role ? agentForRole(agents, role) : undefined;
+      how = 'evidence';
+    }
+    if (!agent) {
+      agent = fallbackAgent(agents, !!s.codeTouched);
+      how = 'fallback';
+    }
+    if (!agent) return;
+    s.autoRole = how;
+    s.agentId = agent.id;
+  }
+
+  /** A session changed agent: its tokens, blocks and feed move with it, and orphaned guests go. */
+  private moveSession(s: SessionState, from: string, to: string, notify: boolean): void {
+    for (const u of this.usage) if (u.sessionId === s.sessionId) u.agentId = to;
+    for (const b of this.blockLog) if (b.sessionId === s.sessionId) b.agentId = to;
+    for (const e of this.feed) if (e.sessionId === s.sessionId) e.agentId = to;
+    this.pruneGuests();
+    this.lastStatus.delete(from);
+    // The guest desk disappeared: clients reload /api/state.
+    if (notify) this.emit('state-reloaded');
   }
 
   /** Usage not yet counted: for keyed transcript messages, only the growth past what was seen. */
@@ -591,7 +667,7 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
 
   private refresh(agentId: string, notify: boolean, force: boolean): void {
     const agent = this.agentById(agentId);
-    if (!agent) return;
+    if (!agent || !this.isVisible(agent)) return;
     const view = this.agentView(agent);
     const changed = this.lastStatus.get(agentId) !== view.runtime.status;
     this.lastStatus.set(agentId, view.runtime.status);

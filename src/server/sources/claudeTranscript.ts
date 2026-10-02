@@ -1,4 +1,5 @@
 import type { Usage } from '../../shared/types.js';
+import { evidenceFromTool, explicitRole, explicitRoleFromSkill, touchesCode } from '../roleGuess.js';
 import { clip, isSubagentTool, matchBlock, matchUsageLimit, summarizeTool, toolKind } from '../summarize.js';
 import type { NormalizedEvent, SessionContext } from './types.js';
 
@@ -27,6 +28,16 @@ function contentText(c: unknown): string {
   if (typeof c === 'string') return c;
   if (Array.isArray(c)) return c.map((x) => s(obj(x)?.text) ?? '').join('\n');
   return '';
+}
+
+/** Role hint of a tool call: an explicit v-off-roles skill call, or evidence from paths/commands. */
+export function roleHintFor(name: string, input: unknown): NormalizedEvent['roleHint'] {
+  const explicit = name === 'Skill' ? explicitRoleFromSkill(input) : undefined;
+  if (explicit) return { explicit };
+  const evidence = evidenceFromTool(name, input);
+  const code = touchesCode(name, input);
+  if (!evidence.length && !code) return undefined;
+  return { evidence: evidence.length ? evidence : undefined, code: code || undefined };
 }
 
 /**
@@ -80,7 +91,10 @@ export class TranscriptParser {
         const subagent = isSubagentTool(name);
         const id = s(block?.id);
         if (id) this.openTools.set(id, { subagent });
-        out.push({ ...base, signal: 'tool-pre', kind: toolKind(name), detail: summarizeTool(name, block?.input), subagent, toolId: id });
+        out.push({
+          ...base, signal: 'tool-pre', kind: toolKind(name), detail: summarizeTool(name, block?.input), subagent, toolId: id,
+          roleHint: roleHintFor(name, block?.input),
+        });
       }
       return out;
     }
@@ -90,9 +104,15 @@ export class TranscriptParser {
     const content = message.content;
     const hasToolResult = Array.isArray(content) && content.some((c) => s(obj(c)?.type) === 'tool_result');
     if (!hasToolResult) {
-      // Privacy: only the prompt size, never its text.
-      const len = contentText(content).length;
-      if (len > 0) out.push({ ...base, signal: 'prompt', kind: 'prompt', detail: `Prompt baru (${len} karakter)` });
+      // Privacy: only the prompt size, never its text (scanned for a named role, not kept).
+      const text = contentText(content);
+      const explicit = explicitRole(text);
+      if (text.length > 0) {
+        out.push({
+          ...base, signal: 'prompt', kind: 'prompt', detail: `Prompt baru (${text.length} karakter)`,
+          roleHint: explicit ? { explicit } : undefined,
+        });
+      }
       return out;
     }
     if (Array.isArray(content)) {

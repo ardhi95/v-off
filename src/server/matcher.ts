@@ -31,7 +31,9 @@ export function globToRegExp(glob: string): RegExp {
 
 export function ruleMatches(rule: MatchRule, ctx: SessionContext): boolean {
   if ('cwdGlob' in rule) {
-    return !!ctx.cwd && globToRegExp(expandHome(rule.cwdGlob)).test(ctx.cwd.replace(/\/+$/, ''));
+    // Compare with forward slashes so Windows paths match rules written with "/".
+    const slash = (p: string) => p.replace(/\\/g, '/');
+    return !!ctx.cwd && globToRegExp(slash(expandHome(rule.cwdGlob))).test(slash(ctx.cwd).replace(/\/+$/, ''));
   }
   if ('gitBranch' in rule) {
     return !!ctx.gitBranch && globToRegExp(rule.gitBranch).test(ctx.gitBranch);

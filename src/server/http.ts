@@ -125,13 +125,25 @@ function hookEnv(req: http.IncomingMessage, url: URL): Record<string, string> | 
       const eq = part.indexOf('=');
       if (eq > 0) {
         const k = part.slice(0, eq).trim();
-        if (k.startsWith('V_OFF_')) env[k] = part.slice(eq + 1).trim();
+        const v = part.slice(eq + 1).trim();
+        if (k.startsWith('V_OFF_') && v) env[k] = v;
       }
     }
   }
   const agent = url.searchParams.get('agent');
   if (agent) env.V_OFF_AGENT = agent;
   return Object.keys(env).length ? env : undefined;
+}
+
+/**
+ * Event time from the hook script (x-v-off-ts, captured before the async POST)
+ * so out-of-order deliveries keep their real order. Falls back to now when
+ * missing or implausible.
+ */
+function hookTime(req: http.IncomingMessage): number {
+  const now = Date.now();
+  const ts = Number(req.headers['x-v-off-ts']);
+  return Number.isFinite(ts) && ts <= now + 5000 && ts >= now - 10 * 60_000 ? ts : now;
 }
 
 export function createServer(store: Store, opts: ServerOptions = {}): http.Server {
@@ -176,7 +188,7 @@ export function createServer(store: Store, opts: ServerOptions = {}): http.Serve
 
       if (route === 'POST /api/hook') {
         if (!store.getConfig().sources.claudeCode.enabled) return send(res, 202, { ok: true, ignored: true });
-        const events = parseHookPayload(await readJson(req), Date.now(), hookEnv(req, url));
+        const events = parseHookPayload(await readJson(req), hookTime(req), hookEnv(req, url));
         if (events.length) store.ingest(events);
         return send(res, 200, { ok: true });
       }

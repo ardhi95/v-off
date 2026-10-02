@@ -93,9 +93,16 @@ export function matchBlock(text: string): BlockMatch | null {
   return null;
 }
 
-/** Classify a Claude Code Notification message (permission vs. waiting for input). */
-export function notifyBlock(message: string, type?: string): BlockMatch {
-  const permission = type === 'permission_prompt' || /permission|izin/i.test(message);
+/** Notification types that mean the agent waits on the user (docs: hooks › Notification). */
+const WAITING_TYPES = new Set(['permission_prompt', 'idle_prompt', 'elicitation_dialog', 'elicitation_url_dialog', 'agent_needs_input']);
+
+/**
+ * Classify a Claude Code Notification. Returns null for purely informational
+ * notifications (auth_success, agent_completed, quota_auto_resume_*, …).
+ */
+export function notifyBlock(message: string, type?: string): BlockMatch | null {
+  if (type && !WAITING_TYPES.has(type)) return null;
+  const permission = type === 'permission_prompt' || (!type && /permission|izin/i.test(message));
   if (permission) {
     const tool = /use (\w+)/i.exec(message)?.[1];
     return {
@@ -107,4 +114,16 @@ export function notifyBlock(message: string, type?: string): BlockMatch {
     reason: 'Menunggu input',
     hint: 'Agent menunggu jawaban Anda di terminal sesi.',
   };
+}
+
+/** Turn-ending API failures (StopFailure error_type). */
+export function apiFailureBlock(errorType: string | undefined, message: string): BlockMatch {
+  const byType: Record<string, BlockMatch> = {
+    rate_limit: { reason: 'Kena rate limit', hint: 'Terlalu banyak permintaan ke API. Lanjutkan sesi setelah batas pulih.' },
+    overloaded: { reason: 'API sedang penuh', hint: 'Layanan model sedang sibuk. Coba lanjutkan sesi beberapa saat lagi.' },
+    billing_error: { reason: 'Masalah tagihan', hint: 'Periksa paket atau tagihan akun, lalu lanjutkan sesi.' },
+    authentication_failed: { reason: 'Login gagal', hint: 'Masuk ulang ke Claude Code di terminal sesi.' },
+    max_output_tokens: { reason: 'Batas output tercapai', hint: 'Jawaban terpotong. Minta agent melanjutkan.' },
+  };
+  return (errorType ? byType[errorType] : undefined) ?? matchBlock(message) ?? { reason: 'Galat API', hint: 'Permintaan ke API model gagal. Lanjutkan sesi setelah masalah teratasi.' };
 }

@@ -32,6 +32,11 @@ describe('matchAgent', () => {
     expect(matchAgent(agents, { cwd: `${os.homedir()}/work/pmo-portal/` })?.id).toBe('raka');
   });
 
+  it('matches Windows-style folders against "/" rules', () => {
+    const win = [agent('raka', [{ cwdGlob: 'C:/work/pmo-portal/**' }])];
+    expect(matchAgent(win, { cwd: 'C:\\work\\pmo-portal\\api' })?.id).toBe('raka');
+  });
+
   it('matches git branch, env, and session name', () => {
     expect(matchAgent(agents, { gitBranch: 'feat/dashboard-q4' })?.id).toBe('dewi');
     expect(matchAgent(agents, { env: { V_OFF_AGENT: 'nina' } })?.id).toBe('nina');

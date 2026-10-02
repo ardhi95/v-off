@@ -50,6 +50,8 @@ Kerjakan fase demi fase. Commit di akhir tiap fase dengan tes yang lolos.
 
 ## Perintah
 
+Pemakai: `npx v-off` (server + buka browser), `npx v-off setup [--remove] [--dry-run] [--port N]`.
+
 ```
 npm install
 npm run dev        # server (tsx watch, :4747) + Vite UI (:5173, proxy /api)
@@ -72,6 +74,9 @@ Variabel lingkungan: `V_OFF_PORT` (default 4747), `V_OFF_HOST` (default 127.0.0.
   menghapus atau mengikuti symlink. Jalan 3 detik setelah start lalu tiap `cleaner.intervalMin` menit.
 - `src/server/history.ts`: `~/.v-off/history.json`, riwayat hambatan (31 hari). Token dan sesi dibangun ulang dari
   transkrip saat start; hambatan dari hooks hanya ada live, jadi disimpan di sini.
+- `src/server/setup.ts` (Fase 7): `v-off setup` memasang hooks Claude Code `type: "command"`, `async: true` yang
+  menjalankan `~/.v-off/hook.mjs` (ditandai `--v-off-hook`). Format hooks mengikuti
+  https://code.claude.com/docs/en/hooks; periksa ulang saat Claude Code berubah. `cli.ts`: `start`/`setup`.
 - `src/server/store.ts`: state di memori, feed, token/biaya, laporan. `http.ts`: REST + SSE (SPEC §9), plus UI statis.
 - `web/src/office/`: renderer WebGL hasil port dari `Main.dc.html` (opsi b). `kit.ts` (geometri),
   `staticScene.ts` (lantai & furnitur), `characters.ts` (hewan & ekspresi), `people.ts` (kursi, tempat main,

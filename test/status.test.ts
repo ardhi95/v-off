@@ -103,3 +103,18 @@ describe('computeStatus', () => {
     expect(s.blockCount).toBe(2);
   });
 });
+
+describe('out-of-order async hooks', () => {
+  it('pairs tool start and end by id even when the end arrives first', () => {
+    const s = run([ev('prompt', sec(0))]);
+    applyEvent(s, ev('tool-post', sec(2), { toolId: 'a' }));
+    applyEvent(s, ev('tool-pre', sec(1), { toolId: 'a' }));
+    expect(s.toolsInFlight).toBe(0);
+    expect(computeStatus(s, {}, sec(200), rules)).toBe('simak');
+    applyEvent(s, ev('tool-pre', sec(201), { toolId: 'b' }));
+    applyEvent(s, ev('tool-pre', sec(201), { toolId: 'b' }));
+    expect(s.toolsInFlight).toBe(1);
+    applyEvent(s, ev('tool-post', sec(202), { toolId: 'b' }));
+    expect(s.toolsInFlight).toBe(0);
+  });
+});

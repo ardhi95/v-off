@@ -1,10 +1,12 @@
-import { clip, isSubagentTool, matchBlock, notifyBlock, summarizeTool, toolKind } from '../summarize.js';
+import { apiFailureBlock, clip, isSubagentTool, matchBlock, notifyBlock, summarizeTool, toolKind } from '../summarize.js';
 import type { NormalizedEvent, SessionContext } from './types.js';
 
 // Claude Code hook payloads arrive on stdin of the hook command as JSON and are
-// forwarded to POST /api/hook. Common fields: session_id, transcript_path, cwd,
-// hook_event_name. Event-specific fields: tool_name, tool_input, tool_response,
-// message, notification_type, source, reason, error.
+// forwarded to POST /api/hook (see https://code.claude.com/docs/en/hooks).
+// Common fields: session_id, transcript_path, cwd, hook_event_name.
+// Event-specific: tool_name, tool_input, tool_use_id, tool_result (older
+// versions: tool_response), error, error_type, message, notification_type,
+// source, reason.
 
 type Payload = Record<string, unknown>;
 
@@ -13,6 +15,7 @@ function s(v: unknown): string | undefined {
 }
 
 function responseText(resp: unknown): string {
+  if (Array.isArray(resp)) return resp.map((x) => (x && typeof x === 'object' ? String((x as { text?: unknown }).text ?? '') : String(x))).join('\n');
   if (typeof resp === 'string') return resp;
   if (!resp || typeof resp !== 'object') return '';
   const r = resp as Record<string, unknown>;
@@ -39,6 +42,8 @@ export function parseHookPayload(payload: unknown, now: number, env?: Record<str
   const ctx: SessionContext = { cwd: s(p.cwd), env };
   const base = { ts: now, sessionId, source: 'claude-code' as const, channel: 'hook' as const, ctx };
   const tool = s(p.tool_name) ?? '';
+  const toolId = s(p.tool_use_id);
+  const result = p.tool_result ?? p.tool_response;
 
   switch (name) {
     case 'SessionStart':
@@ -53,32 +58,47 @@ export function parseHookPayload(payload: unknown, now: number, env?: Record<str
     case 'PreToolUse':
       return [{
         ...base, signal: 'tool-pre', kind: toolKind(tool), detail: summarizeTool(tool, p.tool_input),
-        subagent: isSubagentTool(tool),
+        subagent: isSubagentTool(tool), toolId,
       }];
     case 'PostToolUse': {
-      const resp = p.tool_response;
-      if (responseIsError(resp)) {
-        const text = responseText(resp) || `${tool} gagal`;
+      if (responseIsError(result)) {
+        const text = responseText(result) || `${tool} gagal`;
         return [{
           ...base, signal: 'error', kind: 'error', detail: clip(text),
-          block: matchBlock(text) ?? undefined, subagent: isSubagentTool(tool), endsTool: true,
+          block: matchBlock(text) ?? undefined, subagent: isSubagentTool(tool), endsTool: true, toolId,
         }];
       }
       // Feed already shows the PreToolUse entry; this only closes the call.
-      return [{ ...base, signal: 'tool-post', subagent: isSubagentTool(tool) }];
+      return [{ ...base, signal: 'tool-post', subagent: isSubagentTool(tool), toolId }];
     }
     case 'PostToolUseFailure': {
-      const text = s(p.error) ?? (responseText(p.tool_response) || `${tool} gagal`);
+      const text = s(p.error) ?? (responseText(result) || `${tool} gagal`);
       return [{
         ...base, signal: 'error', kind: 'error', detail: clip(text),
-        block: matchBlock(text) ?? undefined, subagent: isSubagentTool(tool), endsTool: true,
+        block: matchBlock(text) ?? undefined, subagent: isSubagentTool(tool), endsTool: true, toolId,
+      }];
+    }
+    case 'PermissionRequest':
+      return [{
+        ...base, signal: 'notify', kind: 'notify', detail: clip(`Minta izin: ${summarizeTool(tool, p.tool_input)}`),
+        block: {
+          reason: tool ? `Menunggu izin: ${tool}` : 'Menunggu izin',
+          hint: 'Agent meminta izin sebelum melanjutkan. Buka terminal sesi untuk menyetujui atau menolak.',
+        },
+      }];
+    case 'StopFailure': {
+      const msg = s(p.message) ?? s(p.error) ?? 'API Error';
+      return [{
+        ...base, signal: 'error', kind: 'error', detail: clip(msg),
+        block: apiFailureBlock(s(p.error_type), msg),
       }];
     }
     case 'Notification': {
       const msg = s(p.message) ?? '';
+      const block = notifyBlock(msg, s(p.notification_type));
       return [{
-        ...base, signal: 'notify', kind: 'notify', detail: clip(msg || 'Notifikasi'),
-        block: notifyBlock(msg, s(p.notification_type)),
+        ...base, signal: block ? 'notify' : 'activity', kind: 'notify', detail: clip(msg || 'Notifikasi'),
+        block: block ?? undefined,
       }];
     }
     case 'Stop':

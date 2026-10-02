@@ -1,34 +1,89 @@
-# v-off — Virtual Agent Office
+# v-off — Kantor Virtual untuk AI Agent
 
-Kantor virtual 3D lokal untuk memantau AI coding agent (Claude Code, Codex, Gemini CLI).
-Lihat `CLAUDE.md` (panduan kerja) dan `docs/SPEC.md` (spesifikasi).
+v-off menampilkan aktivitas AI coding agent (Claude Code; Codex dan Gemini CLI menyusul) sebagai
+**kantor virtual 3D** di browser. Setiap agent adalah karakter hewan di meja timnya. Statusnya terlihat
+langsung: bekerja, terblokir, memimpin rapat, menyimak, atau istirahat di ruang santai.
 
-## Status
+Semua berjalan **lokal**: server hanya mendengar di `127.0.0.1`, data dibaca dari komputer Anda, tidak ada
+telemetri, dan tidak ada request ke internet saat aplikasi berjalan.
 
-- Fase 1 (kerangka & data): server lokal, pembacaan transkrip Claude Code, endpoint hook,
-  REST dan SSE, aturan status, serta pemetaan agent.
-- Fase 2 (Ruang Tim 3D): kantor 3D sesuai mockup, karakter hewan dengan ekspresi per status,
-  label nama, kamera orbit dengan preset, data live lewat SSE.
-- Fase 3 (Interaksi): panel detail agent, filter status, feed aktivitas, "Tandai sudah ditangani",
-  "Istirahat & main" / "Kembali bekerja", ringkasan sesi, salin perintah `claude --resume`.
-- Fase 4 (Perilaku hidup): agent berjalan antara meja dan ruang santai, office boy berhenti di area
-  dengan cache terbesar (pindai dry-run, tidak ada file dihapus), gelembung celetukan.
-- Fase 5 (Laporan): `/laporan` dengan KPI, scorecard per agent, grafik sesi per jam/hari/minggu,
-  rincian per departemen, dan kartu pos akhir hari (unduh PNG). Biaya = estimasi dari tabel harga di config.
-- Fase 6 (Pengaturan): `/pengaturan` untuk agent (nama, peran, departemen, tool, hewan, warna, tampil,
-  aturan pemetaan sesi, celetukan), departemen, sesi tanpa agent, sumber data, harga model, aturan status,
-  pembersih cache, dan suasana. Tersimpan ke `~/.v-off/config.json` dan langsung terlihat di Ruang Tim.
+## Mulai cepat
 
-## Menjalankan
+Butuh Node.js 18 atau lebih baru.
 
 ```bash
-npm install
-npm run dev          # server :4747 + UI dev di http://127.0.0.1:5173
-npm run build && npm start   # UI hasil build di http://127.0.0.1:4747
-npm test
+npx v-off setup   # pasang hooks Claude Code (sekali saja)
+npx v-off         # jalankan server dan buka http://127.0.0.1:4747
 ```
 
-## API (127.0.0.1:4747)
+Lalu buka sesi Claude Code seperti biasa. Sesi muncul di Ruang Tim dalam hitungan detik.
+
+Tanpa `setup` pun v-off tetap membaca transkrip di `~/.claude/projects/`, tapi status izin (Terblokir) dan
+pembaruan per aksi paling cepat lewat hooks.
+
+## Apa yang dipasang `v-off setup`
+
+- `~/.v-off/hook.mjs`: skrip kecil tanpa dependensi. Membaca JSON hook dari stdin dan mengirimnya ke
+  `POST http://127.0.0.1:4747/api/hook`. Tidak pernah mencetak apa pun dan selalu selesai dalam ±2 detik.
+- Entri `hooks` di `~/.claude/settings.json` untuk event `SessionStart`, `UserPromptSubmit`, `PreToolUse`,
+  `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `Notification`, `Stop`, `StopFailure`,
+  `SubagentStop`, dan `SessionEnd`. Semuanya `type: "command"` dengan `async: true`, jadi Claude Code
+  tidak pernah menunggu v-off dan tidak ada pesan galat saat v-off sedang mati.
+- Sebelum menulis, `settings.json` lama dicadangkan ke `settings.json.v-off-backup-<waktu>`. Hook lain milik
+  Anda tidak disentuh. Menjalankan `setup` dua kali aman (idempoten).
+
+```bash
+npx v-off setup --dry-run   # lihat hasil tanpa menulis
+npx v-off setup --remove    # copot hooks v-off dan skripnya
+npx v-off setup --port 5000 # kalau server dijalankan di port lain
+```
+
+## Memetakan sesi ke agent
+
+Sesi Claude Code dicocokkan ke agent dengan aturan di **Pengaturan → Daftar agent → Detail**, dicek berurutan:
+
+```
+folder: ~/work/pmo-portal/**      # folder kerja sesi (glob)
+branch: feat/timesheet-*          # git branch
+env: V_OFF_AGENT=raka             # variabel lingkungan saat menjalankan claude
+sesi: nama-sesi                   # nama sesi
+```
+
+Cara paling cepat: `V_OFF_AGENT=raka claude`. Sesi yang tidak cocok tampil sebagai "Agent tanpa nama";
+tetapkan foldernya ke agent dari Pengaturan → Sesi tanpa agent.
+
+## Halaman
+
+- **Ruang Tim** (`/`): kantor 3D, filter status, feed aktivitas, panel detail agent ("Tandai sudah
+  ditangani", "Istirahat & main", ringkasan sesi, salin `claude --resume <sesi>`).
+- **Laporan** (`/laporan`): sesi, tingkat sukses, estimasi biaya, token, dan hambatan per agent,
+  departemen, dan periode, plus kartu pos akhir hari (PNG).
+- **Pengaturan Tim** (`/pengaturan`): agent, departemen, sumber data, harga model, aturan status,
+  pembersih cache, suasana. Tersimpan ke `~/.v-off/config.json`.
+
+## Biaya
+
+Biaya adalah **estimasi**: token × harga per model di Pengaturan → Harga model (US$ per 1 juta token).
+v-off tidak menyertakan harga bawaan; isi sesuai harga resmi yang berlaku. Model yang terdeteksi tanpa harga
+ditampilkan di sana.
+
+## Office boy (Udin)
+
+Udin menghitung ukuran cache yang bisa dibersihkan: `node_modules/.cache` dan `.next/cache` di folder sesi,
+`~/.npm/_cacache`, cache Playwright, folder `claude-*` di temp, dan file `*.log` > 7 hari di folder yang Anda
+tentukan. Versi ini **hanya menghitung (dry-run)**: tidak ada file yang dihapus.
+
+## Webhook untuk tool lain
+
+```bash
+curl -X POST http://127.0.0.1:4747/api/status \
+  -H 'content-type: application/json' \
+  -d '{"agentId":"yoga","status":"macet","task":"Tes gagal: 3 dari 48","detail":"Cek timesheet.spec.ts"}'
+```
+
+Status: `kerja`, `macet`, `bicara`, `simak`, `idle`, `bersih`.
+
+## API lokal
 
 ```
 GET  /api/state              GET  /api/stream (SSE)
@@ -37,13 +92,44 @@ POST /api/agents/:id/resolve POST /api/agents/:id/idle  {idle}
 GET  /api/agents/:id/log     GET  /api/sessions/:id
 GET  /api/report?period=day|week|month
 GET  /api/config             PUT  /api/config
-GET  /api/models
-POST /api/cleaner/clean      (dry-run di v1, belum tersedia)
+GET  /api/models             POST /api/cleaner/clean (belum tersedia, 501)
 ```
 
-Contoh mengirim hook secara manual, dengan agent dipilih lewat `?agent=`:
+Request dari halaman web lain (Origin asing) dan Host selain localhost ditolak.
+
+## Privasi
+
+- Isi prompt tidak pernah disimpan atau ditampilkan; hanya panjangnya. Aksi diringkas (nama file, perintah,
+  maks 160 karakter).
+- File yang ditulis v-off: `~/.v-off/config.json`, `~/.v-off/history.json` (riwayat hambatan 31 hari),
+  `~/.v-off/hook.mjs`, dan entri hooks di `~/.claude/settings.json`.
+
+## Variabel lingkungan
+
+| Variabel | Default | Fungsi |
+|---|---|---|
+| `V_OFF_PORT` | `4747` | Port server (juga dibaca skrip hook) |
+| `V_OFF_HOST` | `127.0.0.1` | Alamat bind |
+| `V_OFF_HOME` | `~/.v-off` | Folder config dan riwayat |
+| `V_OFF_NO_OPEN` | – | Jangan buka browser otomatis |
+| `CLAUDE_CONFIG_DIR` | `~/.claude` | Folder Claude Code |
+| `V_OFF_AGENT` | – | Tetapkan sesi Claude Code ke agent tertentu |
+
+## Masalah umum
+
+- **Agent tidak muncul**: pastikan `npx v-off setup` sudah dijalankan dan sesi Claude Code dimulai *setelah*
+  itu. Cek `~/.claude/settings.json` berisi entri dengan `--v-off-hook`.
+- **Port dipakai**: `npx v-off --port 5000`, lalu `npx v-off setup --port 5000`.
+- **3D tidak tampil**: browser perlu WebGL. Panel, filter, dan laporan tetap jalan.
+
+## Pengembangan
 
 ```bash
-curl -X POST 'http://127.0.0.1:4747/api/hook?agent=raka' \
-  -d '{"session_id":"abc","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"npm test"}}'
+npm install
+npm run dev        # server (tsx watch, :4747) + Vite UI (:5173, proxy /api)
+npm test           # vitest
+npm run typecheck
+npm run build      # dist/server + dist/web
 ```
+
+Panduan kontribusi dan arsitektur: `CLAUDE.md`. Spesifikasi: `docs/SPEC.md`. Desain: `design/`.

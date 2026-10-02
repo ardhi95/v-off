@@ -40,7 +40,7 @@ describe('cleaner (dry-run)', () => {
   it('does not follow symlinks', async () => {
     await write('outside/big.bin', 5000);
     await fs.mkdir(path.join(dir, 'cache'));
-    await fs.symlink(path.join(dir, 'outside'), path.join(dir, 'cache', 'link'));
+    await fs.symlink(path.join(dir, 'outside'), path.join(dir, 'cache', 'link'), process.platform === 'win32' ? 'junction' : 'dir');
     expect((await dirSize(path.join(dir, 'cache')))!.bytes).toBe(0);
   });
 

@@ -77,7 +77,7 @@ export class TranscriptParser {
         const subagent = isSubagentTool(name);
         const id = s(block?.id);
         if (id) this.openTools.set(id, { subagent });
-        out.push({ ...base, signal: 'tool-pre', kind: toolKind(name), detail: summarizeTool(name, block?.input), subagent });
+        out.push({ ...base, signal: 'tool-pre', kind: toolKind(name), detail: summarizeTool(name, block?.input), subagent, toolId: id });
       }
       return out;
     }
@@ -103,10 +103,10 @@ export class TranscriptParser {
           const msg = contentText(r.content) || 'Tool gagal';
           out.push({
             ...base, signal: 'error', kind: 'error', detail: clip(msg),
-            block: matchBlock(msg) ?? undefined, subagent: open?.subagent, endsTool: true,
+            block: matchBlock(msg) ?? undefined, subagent: open?.subagent, endsTool: true, toolId: id,
           });
         } else {
-          out.push({ ...base, signal: 'tool-post', subagent: open?.subagent });
+          out.push({ ...base, signal: 'tool-post', subagent: open?.subagent, toolId: id });
         }
       }
     }

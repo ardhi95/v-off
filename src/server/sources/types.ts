@@ -43,6 +43,8 @@ export interface NormalizedEvent {
   block?: BlockMatch;
   /** The tool call starts or stops a subagent. */
   subagent?: boolean;
+  /** tool_use_id: pairs start and end of a call even when async hooks arrive out of order. */
+  toolId?: string;
   /** The event closes a tool call that a 'tool-pre' opened. */
   endsTool?: boolean;
   ctx?: SessionContext;

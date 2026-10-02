@@ -25,13 +25,51 @@ export interface SessionState {
   hadUnresolvedError: boolean;
   /** Newest event time ingested; replays of older events are skipped. */
   maxTs: number;
+  /** Tool calls in flight by tool_use_id, and ids whose end arrived before their start. */
+  openTools: Set<string>;
+  earlyEnds: Set<string>;
 }
 
 export function newSession(sessionId: string, agentId: string, ts: number): SessionState {
   return {
     sessionId, agentId, startedAt: ts, lastActivityAt: ts,
     toolsInFlight: 0, subagentsActive: 0, blockCount: 0, hadUnresolvedError: false, maxTs: 0,
+    openTools: new Set(), earlyEnds: new Set(),
   };
+}
+
+/** Start a tool call. Returns false when its end already arrived (out-of-order async hooks). */
+function openTool(s: SessionState, id: string | undefined): boolean {
+  if (!id) {
+    s.toolsInFlight++;
+    return true;
+  }
+  if (s.earlyEnds.delete(id)) return false;
+  if (!s.openTools.has(id)) {
+    s.openTools.add(id);
+    s.toolsInFlight++;
+  }
+  return true;
+}
+
+/** End a tool call; remembers ends that arrive before their start. */
+function closeTool(s: SessionState, id: string | undefined): void {
+  if (!id) {
+    s.toolsInFlight = Math.max(0, s.toolsInFlight - 1);
+    return;
+  }
+  if (s.openTools.delete(id)) {
+    s.toolsInFlight = Math.max(0, s.toolsInFlight - 1);
+    return;
+  }
+  s.earlyEnds.add(id);
+  if (s.earlyEnds.size > 200) s.earlyEnds.delete(s.earlyEnds.values().next().value!);
+}
+
+function resetTools(s: SessionState): void {
+  s.toolsInFlight = 0;
+  s.subagentsActive = 0;
+  s.openTools.clear();
 }
 
 function setBlock(s: SessionState, block: Block): void {
@@ -56,8 +94,7 @@ export function applyEvent(s: SessionState, ev: NormalizedEvent): SessionState {
       break;
     case 'end':
       s.endedAt = ts;
-      s.toolsInFlight = 0;
-      s.subagentsActive = 0;
+      resetTools(s);
       break;
     case 'prompt':
       // The user answered: whatever blocked the agent is handled.
@@ -68,7 +105,7 @@ export function applyEvent(s: SessionState, ev: NormalizedEvent): SessionState {
       break;
     case 'tool-pre':
       touch();
-      s.toolsInFlight++;
+      if (!openTool(s, ev.toolId)) break;
       if (ev.subagent) {
         s.subagentsActive++;
         s.lastSubagentAt = ts;
@@ -78,7 +115,7 @@ export function applyEvent(s: SessionState, ev: NormalizedEvent): SessionState {
       break;
     case 'tool-post':
       touch();
-      s.toolsInFlight = Math.max(0, s.toolsInFlight - 1);
+      closeTool(s, ev.toolId);
       if (ev.subagent) {
         s.subagentsActive = Math.max(0, s.subagentsActive - 1);
         s.lastSubagentAt = ts;
@@ -90,7 +127,7 @@ export function applyEvent(s: SessionState, ev: NormalizedEvent): SessionState {
       break;
     case 'error':
       touch();
-      if (ev.endsTool) s.toolsInFlight = Math.max(0, s.toolsInFlight - 1);
+      if (ev.endsTool) closeTool(s, ev.toolId);
       if (ev.subagent) s.subagentsActive = Math.max(0, s.subagentsActive - 1);
       if (ev.block) {
         setBlock(s, { kind: 'error', reason: ev.block.reason, hint: ev.block.hint, at: ts });
@@ -102,8 +139,7 @@ export function applyEvent(s: SessionState, ev: NormalizedEvent): SessionState {
       break;
     case 'stop':
       s.lastStopAt = ts;
-      s.toolsInFlight = 0;
-      s.subagentsActive = 0;
+      resetTools(s);
       break;
     case 'subagent-stop':
       touch();

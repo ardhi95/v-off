@@ -11,12 +11,34 @@ telemetri, dan tidak ada request ke internet saat aplikasi berjalan.
 
 Butuh Node.js 18 atau lebih baru.
 
+> Paket `v-off` belum terbit di npm, jadi `npx v-off` belum bisa dipakai. Sampai rilis npm, jalankan dari
+> source (di bawah). Setelah terbit, `node dist/server/cli.js` cukup diganti `npx v-off`.
+
+### Dari source
+
+```bash
+git clone https://github.com/ardhi95/v-off.git
+cd v-off
+npm ci
+npm run build                             # dist/server + dist/web
+
+node dist/server/cli.js setup --dry-run   # lihat perubahan ke ~/.claude/settings.json tanpa menulis
+node dist/server/cli.js setup             # pasang hooks Claude Code (sekali saja)
+node dist/server/cli.js                   # jalankan server dan buka http://127.0.0.1:4747
+```
+
+### Lewat npm (setelah terbit)
+
 ```bash
 npx v-off setup   # pasang hooks Claude Code (sekali saja)
 npx v-off         # jalankan server dan buka http://127.0.0.1:4747
 ```
 
-Lalu buka sesi Claude Code seperti biasa. Sesi muncul di Ruang Tim dalam hitungan detik.
+Lalu buka sesi Claude Code seperti biasa (di terminal lain). Sesi muncul di Ruang Tim dalam hitungan detik.
+Untuk langsung menetapkan sesi ke agent tertentu: `V_OFF_AGENT=raka claude`.
+
+v-off adalah aplikasi lokal, bukan situs web. Jangan di-deploy ke hosting seperti Vercel atau Netlify: UI-nya
+butuh server di komputer yang sama untuk membaca data Claude Code, jadi versi hosting akan kosong.
 
 Tanpa `setup` pun v-off tetap membaca transkrip di `~/.claude/projects/`, tapi status izin (Terblokir) dan
 pembaruan per aksi paling cepat lewat hooks.
@@ -117,6 +139,8 @@ Request dari halaman web lain (Origin asing) dan Host selain localhost ditolak.
 
 ## Masalah umum
 
+- **`npx v-off` gagal dengan `404 Not Found`**: paket belum terbit di npm. Jalankan dari source (lihat
+  Mulai cepat), dengan `node dist/server/cli.js` sebagai pengganti `npx v-off`.
 - **Agent tidak muncul**: pastikan `npx v-off setup` sudah dijalankan dan sesi Claude Code dimulai *setelah*
   itu. Cek `~/.claude/settings.json` berisi entri dengan `--v-off-hook`.
 - **Port dipakai**: `npx v-off --port 5000`, lalu `npx v-off setup --port 5000`.

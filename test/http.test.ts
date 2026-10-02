@@ -189,3 +189,15 @@ describe('closeServer', () => {
     ctrl.abort();
   });
 });
+
+describe('malformed URLs', () => {
+  it('returns 400 for a broken percent-encoding', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'v-off-web2-'));
+    await fs.writeFile(path.join(dir, 'index.html'), 'x');
+    const s = createServer(new Store(defaultConfig()), { webRoot: dir });
+    const addr = await listen(s, '127.0.0.1', 0);
+    expect((await fetch(`http://127.0.0.1:${addr.port}/%E0%A4%A`)).status).toBe(400);
+    await closeServer(s);
+    await fs.rm(dir, { recursive: true });
+  });
+});

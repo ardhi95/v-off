@@ -210,9 +210,6 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
       {roomLabels.map((r) => (
         <span key={r.key} className="room-tag" data-k3d={r.key}>{r.label}</span>
       ))}
-      {pods.map((p) => (
-        <span key={p.id} className="room-tag dept" data-k3d={'d:' + p.id} style={{ '--c': p.c } as React.CSSProperties}>{p.label}</span>
-      ))}
       {agents.filter((a) => !a.hidden).map((a) => {
         const st = STATUS_STYLE[a.runtime.status];
         const sel = selected === a.id;
@@ -229,7 +226,6 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
             aria-label={`${a.name}, ${a.role}, ${st.label}`}
           >
             <span className="tag-avatar" style={{ background: a.shirt, color: inkOn(a.shirt) }}>{a.name.charAt(0).toUpperCase()}</span>
-            <span>{a.name}</span>
             <span className="tag-short">{a.short}</span>
             <span className={`tag-dot${a.runtime.status === 'macet' ? ' blink' : ''}`} style={{ background: st.fill }} />
             {a.walker && <span className="tag-extra">{cleanerAction}</span>}

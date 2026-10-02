@@ -8,6 +8,7 @@ interface Tracked {
   /** Bytes after the last newline; kept as bytes so split UTF-8 characters survive. */
   remainder: Buffer;
   parser: TranscriptParser;
+  mtimeMs: number;
 }
 
 export interface TranscriptSourceOptions {
@@ -16,10 +17,16 @@ export interface TranscriptSourceOptions {
   /** Files modified within this many days are replayed at startup (history + usage). */
   recoveryDays?: number;
   pollMs?: number;
+  /** Walk the whole folder tree every N polls to find new files (default 5). */
+  rescanEvery?: number;
   clock?: () => number;
 }
 
 const MAX_DEPTH = 4;
+/** Files changed within this window are stat'ed on every poll; others only on a full rescan. */
+const HOT_MS = 24 * 3600_000;
+/** Read large transcripts in pieces so a huge file never needs one huge buffer. */
+const CHUNK = 4 * 1024 * 1024;
 
 /**
  * Tails Claude Code JSONL transcripts by polling file sizes. Polling is used
@@ -30,6 +37,7 @@ export class ClaudeTranscriptSource implements SourceAdapter {
   private files = new Map<string, Tracked>();
   private timer: NodeJS.Timeout | undefined;
   private polling = false;
+  private polls = 0;
   private sink: Sink | undefined;
   private readonly recoveryMs: number;
   private readonly pollMs: number;
@@ -49,10 +57,10 @@ export class ClaudeTranscriptSource implements SourceAdapter {
     files.sort((a, b) => a.mtimeMs - b.mtimeMs);
     for (const f of files) {
       if (f.mtimeMs < cutoff) {
-        this.files.set(f.path, { offset: f.size, remainder: Buffer.alloc(0), parser: new TranscriptParser() });
+        this.files.set(f.path, { offset: f.size, remainder: Buffer.alloc(0), parser: new TranscriptParser(), mtimeMs: f.mtimeMs });
         continue;
       }
-      await this.readNew(f.path, f.size, true);
+      await this.readNew(f.path, f.size, f.mtimeMs, true);
     }
     this.timer = setInterval(() => void this.poll(), this.pollMs);
     this.timer.unref?.();
@@ -63,14 +71,33 @@ export class ClaudeTranscriptSource implements SourceAdapter {
     this.timer = undefined;
   }
 
-  /** One polling pass. Public for tests. */
+  /**
+   * One polling pass. Public for tests. Only recently changed files are
+   * stat'ed each pass; the full folder walk (new files, revived old ones)
+   * runs every `rescanEvery` passes, so a large ~/.claude/projects stays cheap.
+   */
   async poll(): Promise<void> {
     if (this.polling) return;
     this.polling = true;
     try {
-      for (const f of await this.listFiles()) {
-        const t = this.files.get(f.path);
-        if (!t || f.size !== t.offset) await this.readNew(f.path, f.size, false);
+      const full = this.polls++ % Math.max(1, this.opts.rescanEvery ?? 5) === 0;
+      if (full) {
+        for (const f of await this.listFiles()) {
+          const t = this.files.get(f.path);
+          if (!t || f.size !== t.offset) await this.readNew(f.path, f.size, f.mtimeMs, false);
+        }
+        return;
+      }
+      const hot = this.clock() - HOT_MS;
+      for (const [file, t] of this.files) {
+        if (t.mtimeMs < hot) continue;
+        let st;
+        try {
+          st = await fs.stat(file);
+        } catch {
+          continue; // removed; the next full rescan forgets it
+        }
+        if (st.size !== t.offset) await this.readNew(file, st.size, st.mtimeMs, false);
       }
     } finally {
       this.polling = false;
@@ -103,36 +130,44 @@ export class ClaudeTranscriptSource implements SourceAdapter {
     return out;
   }
 
-  private async readNew(file: string, size: number, historic: boolean): Promise<void> {
+  private async readNew(file: string, size: number, mtimeMs: number, historic: boolean): Promise<void> {
     let t = this.files.get(file);
     if (!t || size < t.offset) {
       // New or truncated file: start over.
-      t = { offset: 0, remainder: Buffer.alloc(0), parser: new TranscriptParser() };
+      t = { offset: 0, remainder: Buffer.alloc(0), parser: new TranscriptParser(), mtimeMs };
       this.files.set(file, t);
     }
+    t.mtimeMs = mtimeMs;
     if (size === t.offset) return;
-    let chunk: Buffer;
+    let fh;
     try {
-      const fh = await fs.open(file, 'r');
-      try {
-        const buf = Buffer.alloc(size - t.offset);
-        const { bytesRead } = await fh.read(buf, 0, buf.length, t.offset);
-        chunk = buf.subarray(0, bytesRead);
-        t.offset += bytesRead;
-      } finally {
-        await fh.close();
-      }
+      fh = await fs.open(file, 'r');
     } catch {
       return;
     }
-    // Keep an unfinished last line for the next read.
-    const bytes = Buffer.concat([t.remainder, chunk]);
+    try {
+      while (t.offset < size) {
+        const buf = Buffer.alloc(Math.min(CHUNK, size - t.offset));
+        const { bytesRead } = await fh.read(buf, 0, buf.length, t.offset);
+        if (bytesRead === 0) break;
+        t.offset += bytesRead;
+        this.consume(t, buf.subarray(0, bytesRead), historic);
+      }
+    } catch {
+      // Read error: keep what was consumed; the next poll continues from offset.
+    } finally {
+      await fh.close();
+    }
+  }
+
+  /** Parse complete lines; keep an unfinished last line (as bytes, so split UTF-8 survives). */
+  private consume(t: Tracked, chunk: Buffer, historic: boolean): void {
+    const bytes = t.remainder.length ? Buffer.concat([t.remainder, chunk]) : chunk;
     const nl = bytes.lastIndexOf(0x0a);
-    t.remainder = nl === -1 ? bytes : bytes.subarray(nl + 1);
+    t.remainder = nl === -1 ? Buffer.from(bytes) : Buffer.from(bytes.subarray(nl + 1));
     if (nl === -1) return;
-    const text = bytes.subarray(0, nl).toString('utf8');
     const events: NormalizedEvent[] = [];
-    for (const line of text.split('\n')) events.push(...t.parser.parseLine(line));
+    for (const line of bytes.subarray(0, nl).toString('utf8').split('\n')) events.push(...t.parser.parseLine(line));
     if (events.length) this.sink?.ingest(events, { historic });
   }
 }

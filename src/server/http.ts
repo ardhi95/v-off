@@ -34,7 +34,13 @@ const MIME: Record<string, string> = {
 /** Serve a file from webRoot; unknown paths fall back to index.html. Returns false if no UI is built. */
 async function serveStatic(webRoot: string, pathname: string, res: http.ServerResponse): Promise<boolean> {
   const root = path.resolve(webRoot);
-  let file = path.resolve(root, '.' + decodeURIComponent(pathname));
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    throw new HttpError(400, 'URL tidak valid.');
+  }
+  let file = path.resolve(root, '.' + decoded);
   // Never serve outside webRoot.
   if (file !== root && !file.startsWith(root + path.sep)) file = path.join(root, 'index.html');
   let data: Buffer;
@@ -156,10 +162,12 @@ export function createServer(store: Store, opts: ServerOptions = {}): http.Serve
   const onEvent = (e: unknown) => broadcast('event-added', e);
   const onCleaner = (c: unknown) => broadcast('cleaner-updated', c);
   const onConfig = () => broadcast('config-updated', {});
+  const onReload = () => broadcast('state-reloaded', {});
   store.on('agent-updated', onAgent);
   store.on('event-added', onEvent);
   store.on('cleaner-updated', onCleaner);
   store.on('config-updated', onConfig);
+  store.on('state-reloaded', onReload);
   const heartbeat = setInterval(() => {
     for (const c of clients) c.write(': ping\n\n');
   }, 15_000);
@@ -281,6 +289,7 @@ export function createServer(store: Store, opts: ServerOptions = {}): http.Serve
     store.off('event-added', onEvent);
     store.off('cleaner-updated', onCleaner);
     store.off('config-updated', onConfig);
+    store.off('state-reloaded', onReload);
     for (const c of clients) c.end();
     clients.clear();
   });

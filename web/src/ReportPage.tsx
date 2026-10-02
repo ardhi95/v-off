@@ -6,10 +6,11 @@ import { CHART_TITLE, chartBars, deptRows, PERIODS, periodDescription, postcard,
 
 const REFRESH_MS = 30_000;
 
-function useReport(period: Period, refreshKey: number): { report: Report | null; error: string | null } {
+function useReport(period: Period | null, refreshKey: number): { report: Report | null; error: string | null } {
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
+    if (!period) return;
     let live = true;
     const load = () =>
       fetch(`/api/report?period=${period}`)
@@ -39,7 +40,8 @@ export function ReportPage({ agents, departments, eventCount, onToast }: {
   // Refresh at most every 10 live events to keep the server load small.
   const { report, error } = useReport(period, Math.floor(eventCount / 10));
   // The end-of-day postcard always summarizes today, whatever period is shown.
-  const { report: today } = useReport('day', Math.floor(eventCount / 10));
+  const { report: todayOnly } = useReport(period === 'day' ? null : 'day', Math.floor(eventCount / 10));
+  const today = period === 'day' ? report : todayOnly;
 
   const score = useMemo(() => (report ? scoreRows(report, agents, sort) : null), [report, agents, sort]);
   const bars = useMemo(() => (report ? chartBars(report) : []), [report]);

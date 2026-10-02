@@ -72,3 +72,37 @@ describe('ClaudeTranscriptSource', () => {
     src.stop();
   });
 });
+
+describe('ClaudeTranscriptSource scaling', () => {
+  it('reads a transcript larger than one chunk, lines split across chunks intact', async () => {
+    const file = path.join(dir, 'big.jsonl');
+    const pad = 'x'.repeat(1000);
+    const lines: string[] = [];
+    for (let i = 0; i < 6000; i++) lines.push(prompt(`${i}${pad}`).trimEnd()); // ~6 MB > 4 MB chunk
+    await fs.writeFile(file, lines.join('\n') + '\n');
+    const { batches, sink } = collector();
+    const src = new ClaudeTranscriptSource({ root: dir, pollMs: 60_000 });
+    await src.start(sink);
+    src.stop();
+    const events = batches.flatMap((b) => b.events);
+    expect(batches.length).toBeGreaterThan(1);
+    expect(events).toHaveLength(6000);
+    expect(events.every((e) => e.signal === 'prompt')).toBe(true);
+  });
+
+  it('stats only hot files between full rescans; new files wait for the rescan', async () => {
+    await fs.writeFile(path.join(dir, 'a.jsonl'), prompt('a'));
+    const { batches, sink } = collector();
+    const src = new ClaudeTranscriptSource({ root: dir, pollMs: 60_000, rescanEvery: 3 });
+    await src.start(sink);
+    await src.poll(); // pass 0: full rescan
+    await fs.appendFile(path.join(dir, 'a.jsonl'), prompt('a2'));
+    await fs.writeFile(path.join(dir, 'b.jsonl'), prompt('b'));
+    await src.poll(); // pass 1: hot files only
+    expect(batches.map((b) => b.events.length)).toEqual([1, 1]);
+    await src.poll(); // pass 2: hot only
+    await src.poll(); // pass 3: full rescan finds b
+    expect(batches).toHaveLength(3);
+    src.stop();
+  });
+});

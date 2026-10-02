@@ -111,9 +111,11 @@ describe('re-reading transcripts', () => {
     await fs.writeFile(path.join(dir, 'r.jsonl'), [line(0, 5), line(1, 7)].join('\n') + '\n');
     const store = new Store(defaultConfig(), () => NOW);
     for (let i = 0; i < 3; i++) {
+      if (i > 0) store.beginReplay();
       const src = new ClaudeTranscriptSource({ root: dir, pollMs: 60_000, clock: () => NOW });
       await src.start(store);
       src.stop();
+      store.endReplay();
     }
     expect(store.report('day').totals.tokens).toBe(10 + 5 + 10 + 7);
     expect(store.report('day').totals.sessions).toBe(1);
@@ -124,5 +126,39 @@ describe('re-reading transcripts', () => {
     src.stop();
     expect(store.report('day').totals.tokens).toBe(10 + 5 + 10 + 20);
     await fs.rm(dir, { recursive: true });
+  });
+});
+
+describe('historic replay', () => {
+  const pre = (detail: string, toolId: string, ts = 1000) => ({
+    ts, sessionId: 'x', source: 'claude-code' as const, channel: 'transcript' as const, signal: 'tool-pre' as const, kind: 'read' as const, detail, toolId,
+  });
+
+  it('keeps events that share a timestamp on the first read', () => {
+    const s = new Store(defaultConfig(), () => 2000);
+    s.ingest([pre('a.ts', 't1'), pre('b.ts', 't2')], { historic: true });
+    s.ingest([pre('c.ts', 't3')], { historic: true }); // next chunk, same ts
+    expect(s.sessionSummary('x')!.events.map((e) => e.detail)).toEqual(['a.ts', 'b.ts', 'c.ts']);
+  });
+
+  it('skips only what was already applied when a source restarts', () => {
+    const s = new Store(defaultConfig(), () => 5000);
+    s.ingest([pre('a.ts', 't1', 1000), pre('b.ts', 't2', 2000)], { historic: true });
+    s.beginReplay();
+    s.ingest([pre('a.ts', 't1', 1000), pre('b.ts', 't2', 2000), pre('c.ts', 't3', 3000)], { historic: true });
+    s.endReplay();
+    expect(s.sessionSummary('x')!.events.map((e) => e.detail)).toEqual(['a.ts', 'b.ts', 'c.ts']);
+  });
+});
+
+describe('usage retention', () => {
+  it('prunes old usage even when it arrived after newer records', () => {
+    const now = new Date('2026-10-02T12:00:00').getTime();
+    const store = new Store(defaultConfig(), () => now);
+    const u = (ts: number) => ({ ts, sessionId: 's', source: 'claude-code' as const, channel: 'transcript' as const, signal: 'usage' as const, usage: { input: 1, output: 0, cacheRead: 0, cacheWrite: 0, model: 'm' } });
+    store.ingest([u(now - 1000), u(now - 40 * 24 * 3600_000)], { historic: true });
+    expect(store.modelsSeen()[0]!.tokens).toBe(2);
+    store.tick();
+    expect(store.modelsSeen()[0]!.tokens).toBe(1);
   });
 });

@@ -3,6 +3,7 @@ import type { Groups } from './kit.js';
 import { exitChain, OB_PATH, pathLength, pointAt, ROOM_ANCHORS, route, VIEWS, type Placement, type PlaySpot, type Pod, type XZ } from './layout.js';
 import { m4, Rx, Ry, T, type Mat4 } from './math.js';
 import { agentAnchors, buildRings, PeopleBuilder, type Anchors, type SceneAgent } from './people.js';
+import { FloorText } from './floorText.js';
 import { buildStatic } from './staticScene.js';
 
 // WebGL renderer for the office, ported from the mockup (initGL, upload,
@@ -88,6 +89,7 @@ export class OfficeRenderer {
   private ob: ObState | null = null;
   private obM: Record<string, Mat4> | null = null;
   private readonly reduce: boolean;
+  private floorText: FloorText;
 
   /** Throws when WebGL is unavailable; callers show a fallback message. */
   constructor(private readonly canvas: HTMLCanvasElement, pods: Pod[], private readonly opts: RendererOptions = {}) {
@@ -119,7 +121,7 @@ export class OfficeRenderer {
     gl.enableVertexAttribArray(this.loc.n);
     gl.enableVertexAttribArray(this.loc.c);
     this.upload(buildStatic(pods));
-    for (const p of pods) this.anchors['d:' + p.id] = p.id === 'qa' ? [p.x, 262, p.z - 110] : [p.x, 205, p.z];
+    this.floorText = new FloorText(gl, pods);
     this.loop = this.loop.bind(this);
   }
 
@@ -133,6 +135,7 @@ export class OfficeRenderer {
     const gl = this.gl;
     for (const b of Object.values(this.bufs)) gl.deleteBuffer(b);
     this.bufs = {};
+    this.floorText.destroy();
     // Keep the context alive: React may mount a new renderer on the same canvas.
   }
 
@@ -446,6 +449,12 @@ export class OfficeRenderer {
       }
       gl.uniformMatrix4fv(this.loc.m, false, I4);
     }
+    this.floorText.draw(M, w, h, () => {
+      gl.useProgram(this.prog);
+      gl.enableVertexAttribArray(this.loc.p);
+      gl.enableVertexAttribArray(this.loc.n);
+      gl.enableVertexAttribArray(this.loc.c);
+    });
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.depthMask(false);

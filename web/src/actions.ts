@@ -1,13 +1,21 @@
 import type { AgentEvent, SessionSummary } from '../../src/shared/types.js';
 
+export const UNREACHABLE = 'server v-off tidak bisa dihubungi. Jalankan ulang server (npx v-off atau npm run dev).';
+
 async function call<T>(method: string, url: string, body?: unknown): Promise<T> {
-  const res = await fetch(url, {
-    method,
-    headers: body === undefined ? undefined : { 'content-type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers: body === undefined ? undefined : { 'content-type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    throw new Error(UNREACHABLE); // connection refused: the server is not running
+  }
   const data = (await res.json().catch(() => ({}))) as T & { error?: string };
-  if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+  // The server always answers errors in JSON; a bare 5xx comes from the dev proxy with no server behind it.
+  if (!res.ok) throw new Error(data.error ?? (res.status >= 500 ? UNREACHABLE : `HTTP ${res.status}`));
   return data;
 }
 

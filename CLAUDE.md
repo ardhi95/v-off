@@ -92,9 +92,10 @@ Variabel lingkungan: `V_OFF_PORT` (default 4747), `V_OFF_HOST` (default 127.0.0.
   `LimitState` (dicek sebelum dedupe hook/transkrip karena teks limit sering hanya ada di transkrip).
 - `web/src/office/`: renderer WebGL hasil port dari `Main.dc.html` (opsi b). `kit.ts` (geometri),
   `staticScene.ts` (lantai & furnitur), `characters.ts` (hewan & ekspresi), `people.ts` (kursi, tempat main,
-  cache geometri per agent), `camera.ts` (orbit & preset; `layout.ts` `allViews` menambah preset per meja tim, dipilih lewat dropdown
+  cache geometri per agent), `camera.ts` (orbit, `panBy` untuk geser dalam batas `PAN_X`/`PAN_Z`, & preset; `layout.ts` `allViews` menambah preset per meja tim, dipilih lewat dropdown
   "Meja tim" di bar kamera), `renderer.ts` (loop, office boy, label).
-- `web/src/OfficeStage.tsx`: kanvas, label nama, kontrol kamera. `api.ts`: `/api/state` + SSE. `actions.ts`: aksi REST.
+- `web/src/OfficeStage.tsx`: kanvas, label nama, kontrol kamera. Seret kiri = putar; seret kanan/tengah, Shift, atau
+  toggle "Geser" = geser denah; dua jari = geser + pinch zoom. Pointer capture menjaga drag di luar kanvas. `api.ts`: `/api/state` + SSE. `actions.ts`: aksi REST.
 - `web/src/AgentPanel.tsx`, `FilterBar.tsx`, `ActivityFeed.tsx`, `SessionDialog.tsx`: interaksi (Fase 3).
   `present.ts`: helper murni (filter, format angka, teks feed, lokasi) yang dites.
 - Asrama: `layout.ts` (`DORM`, `BEDS`, `assignBeds`, rute `exitChain` untuk kasur), `staticScene.ts` (`buildDorm`,

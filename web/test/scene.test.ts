@@ -172,3 +172,30 @@ describe('desk spotlight views', () => {
     expect(deskView(eng).dist).toBeGreaterThan(deskView(pods.find((p) => p.id === 'pmo')!).dist);
   });
 });
+
+describe('OrbitCamera.panBy', () => {
+  const flat = () => new OrbitCamera({ label: '', tx: 0, ty: 0, tz: 0, yaw: 0, pitch: Math.PI / 2 - 0.01, dist: 1000 }, true);
+
+  it('drags the floor with the pointer (camera facing -z)', () => {
+    const c = flat();
+    c.panBy(100, 0, 600); // drag right: the floor follows, the target moves left
+    expect(c.goal.tx).toBeLessThan(0);
+    expect(Math.abs(c.goal.tz)).toBeLessThan(1e-6);
+    const before = c.goal.tz;
+    c.panBy(0, 100, 600); // drag down: the target moves away from the camera
+    expect(c.goal.tz).toBeLessThan(before);
+    expect(c.cam.tx).toBe(c.goal.tx); // direct, no easing lag
+  });
+
+  it('follows the yaw and stays inside the office', async () => {
+    const { PAN_X, PAN_Z } = await import('../src/office/camera.js');
+    const c = new OrbitCamera({ label: '', tx: 0, ty: 0, tz: 0, yaw: Math.PI / 2, pitch: 1, dist: 1000 }, true);
+    c.panBy(100, 0, 600); // camera looks along -x: screen right is -z, so the target moves +z
+    expect(c.goal.tz).toBeGreaterThan(0);
+    c.panBy(-1e6, 1e6, 600);
+    expect(c.goal.tx).toBeGreaterThanOrEqual(PAN_X[0]);
+    expect(c.goal.tx).toBeLessThanOrEqual(PAN_X[1]);
+    expect(c.goal.tz).toBeGreaterThanOrEqual(PAN_Z[0]);
+    expect(c.goal.tz).toBeLessThanOrEqual(PAN_Z[1]);
+  });
+});

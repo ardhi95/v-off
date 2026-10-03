@@ -15,6 +15,9 @@ export const DIST_MIN = 280;
 export const DIST_MAX = 5200;
 export const PITCH_MIN = 0.12;
 export const PITCH_MAX = 1.5;
+/** Pan limits for the camera target: the office (x -1050..1050, z -840..1350) plus the dorm on the left. */
+export const PAN_X: [number, number] = [-1900, 1150];
+export const PAN_Z: [number, number] = [-950, 1450];
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
@@ -79,6 +82,22 @@ export class OrbitCamera {
   orbitTo(yaw: number, pitch: number): void {
     this.goal.yaw = this.cam.yaw = yaw;
     this.goal.pitch = this.cam.pitch = clamp(pitch, PITCH_MIN, PITCH_MAX);
+  }
+
+  /**
+   * Direct pan: drag the floor under the pointer. `dx`/`dy` are CSS pixels, `h` the viewport
+   * height. The target slides on the ground plane, kept inside the office (dorm included).
+   */
+  panBy(dx: number, dy: number, h: number): void {
+    const c = this.goal;
+    const perPx = (2 * c.dist * Math.tan((19 * Math.PI) / 180)) / Math.max(1, h);
+    const depth = perPx / Math.max(0.3, Math.sin(c.pitch)); // vertical pixels cover more floor when tilted
+    const sin = Math.sin(c.yaw), cos = Math.cos(c.yaw);
+    // Screen right on the floor is (cos, -sin); away from the camera is (-sin, -cos).
+    const x = c.tx - dx * perPx * cos - dy * depth * sin;
+    const z = c.tz + dx * perPx * sin - dy * depth * cos;
+    this.goal.tx = this.cam.tx = clamp(x, PAN_X[0], PAN_X[1]);
+    this.goal.tz = this.cam.tz = clamp(z, PAN_Z[0], PAN_Z[1]);
   }
 
   eye(): [number, number, number] {

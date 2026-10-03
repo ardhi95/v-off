@@ -15,6 +15,10 @@ const SNAPSHOT_EVENTS = 50;
 const USAGE_RETENTION_MS = 31 * 24 * 3600_000;
 export const SESSION_LOG_LIMIT = 300;
 const SESSION_LOGS_KEPT = 200;
+/** Transcript-only sessions: a tool still open after this long probably waits for approval. */
+export const PENDING_TOOL_MS = 90_000;
+/** Guessed (auto) waits older than this are dropped: the session was left, not waiting. */
+export const AUTO_BLOCK_STALE_MS = 30 * 60_000;
 /** Office stays off this long when a limit message names no reset time (Claude's session window). */
 export const LIMIT_FALLBACK_MS = 5 * 3600_000;
 
@@ -188,6 +192,7 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
 
       const hadBlock = !!s.block;
       applyEvent(s, ev);
+      if (ev.channel === 'transcript' && ev.signal === 'notify' && s.block) s.block.auto = true;
       if (!hadBlock && s.block) this.recordBlock({ ts: ev.ts, agentId: s.agentId, sessionId: s.sessionId }, !!opts.historic);
       let hours = this.activeHours.get(s.sessionId);
       if (!hours) this.activeHours.set(s.sessionId, (hours = new Set()));
@@ -238,6 +243,7 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
       s.hadUnresolvedError = false;
       s.lastActivityAt = now;
       s.lastStopAt = undefined;
+      s.waitHandledAt = now;
     }
     const flags = this.flags.get(agentId);
     if (flags?.external?.status === 'macet') flags.external = { status: 'kerja', at: now };
@@ -323,7 +329,32 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
       this.usage = this.usage.filter((u) => u.ts >= cutoff);
       this.oldestUsageTs = this.usage.reduce((m, u) => Math.min(m, u.ts), Infinity);
     }
+    for (const s of this.sessions.values()) this.guessWait(s);
     this.refreshAll(true, false);
+  }
+
+  /**
+   * Sessions without hooks never report permission prompts. Like virtual-agents-office, a tool
+   * call that stays open with a silent transcript is shown as a likely wait for approval. It is
+   * not counted as a block in reports (a long build looks the same), and every guessed wait is
+   * dropped once the session has been quiet for 30 minutes.
+   */
+  private guessWait(s: SessionState): void {
+    if (s.hookSeenAt !== undefined || s.endedAt !== undefined) return;
+    const quiet = this.clock() - s.lastActivityAt;
+    if (s.block?.auto && quiet >= AUTO_BLOCK_STALE_MS) {
+      s.block = undefined;
+      return;
+    }
+    if (s.block || quiet < PENDING_TOOL_MS || quiet >= AUTO_BLOCK_STALE_MS) return;
+    const stopped = s.lastStopAt !== undefined && s.lastStopAt >= s.lastActivityAt;
+    const handled = s.waitHandledAt !== undefined && s.waitHandledAt >= s.lastActivityAt;
+    if (stopped || handled || s.toolsInFlight === 0 || s.subagentsActive > 0) return;
+    s.block = {
+      kind: 'notify', auto: true, at: s.lastActivityAt + PENDING_TOOL_MS,
+      reason: 'Mungkin menunggu izin',
+      hint: `${s.lastAction ? `"${s.lastAction}" belum` : 'Tool belum'} selesai lebih dari 90 detik. Setujui di terminal sesi jika diminta, atau tunggu jika perintahnya memang lama.`,
+    };
   }
 
   // ---- read ---------------------------------------------------------------

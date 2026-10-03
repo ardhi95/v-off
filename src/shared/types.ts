@@ -96,6 +96,8 @@ export interface Block {
   reason: string;
   hint: string;
   at: number;
+  /** Guessed from a transcript (no hooks): cleared by itself once the session goes quiet. */
+  auto?: boolean;
 }
 
 /** Live, derived state of an agent. Never persisted to config. */

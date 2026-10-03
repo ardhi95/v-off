@@ -69,6 +69,9 @@ Variabel lingkungan: `V_OFF_PORT` (default 4747), `V_OFF_HOST` (default 127.0.0.
 - `src/server/defaults.ts`: 18 agent dan departemen default dari mockup.
 - `src/server/sources/`: adapter sumber data di balik `SourceAdapter`. `claudeHook.ts` (payload hook),
   `claudeTranscript.ts` (parser JSONL), `claudeTranscriptSource.ts` (tail file dengan polling).
+- Sesi tanpa hooks (SPEC §6): `claudeTranscript.ts` mengubah `end_turn` jadi `stop` dan `AskUserQuestion`/`ExitPlanMode`
+  jadi `notify`; `Store.guessWait` (di `tick`) menandai tool terbuka ≥ 90 detik sebagai "Mungkin menunggu izin"
+  (`Block.auto`, tidak masuk hambatan). Blokir `auto` hilang setelah 30 menit sepi.
 - `src/server/status.ts`: aturan status (SPEC §6), fungsi murni. `matcher.ts`: pemetaan sesi ke agent (SPEC §7).
   `roleGuess.ts`: roster = **katalog peran**, bukan staf wajib. Setiap sesi yang tak cocok aturan pemetaan
   diklasifikasikan ke peran terdekat (kata kunci lokal, ditiru dari `roleFor` di virtual-agents-office): peran
@@ -89,7 +92,8 @@ Variabel lingkungan: `V_OFF_PORT` (default 4747), `V_OFF_HOST` (default 127.0.0.
   `LimitState` (dicek sebelum dedupe hook/transkrip karena teks limit sering hanya ada di transkrip).
 - `web/src/office/`: renderer WebGL hasil port dari `Main.dc.html` (opsi b). `kit.ts` (geometri),
   `staticScene.ts` (lantai & furnitur), `characters.ts` (hewan & ekspresi), `people.ts` (kursi, tempat main,
-  cache geometri per agent), `camera.ts` (orbit & preset), `renderer.ts` (loop, office boy, label).
+  cache geometri per agent), `camera.ts` (orbit & preset; `layout.ts` `allViews` menambah preset per meja tim, dipilih lewat dropdown
+  "Meja tim" di bar kamera), `renderer.ts` (loop, office boy, label).
 - `web/src/OfficeStage.tsx`: kanvas, label nama, kontrol kamera. `api.ts`: `/api/state` + SSE. `actions.ts`: aksi REST.
 - `web/src/AgentPanel.tsx`, `FilterBar.tsx`, `ActivityFeed.tsx`, `SessionDialog.tsx`: interaksi (Fase 3).
   `present.ts`: helper murni (filter, format angka, teks feed, lokasi) yang dites.

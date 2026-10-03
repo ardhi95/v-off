@@ -160,3 +160,15 @@ describe('SSE state updates', () => {
     expect(s.events[0]!.ts).toBe(59);
   });
 });
+
+describe('desk spotlight views', () => {
+  it('adds one camera view per team desk, aimed at its centre', async () => {
+    const { allViews, deskView, podsFrom, VIEWS } = await import('../src/office/layout.js');
+    const pods = podsFrom(defaultConfig().departments);
+    const views = allViews(pods);
+    expect(Object.keys(views)).toEqual([...Object.keys(VIEWS), ...pods.map((p) => `meja:${p.id}`)]);
+    const eng = pods.find((p) => p.id === 'eng')!;
+    expect(deskView(eng)).toMatchObject({ label: eng.label, tx: eng.x, tz: eng.z });
+    expect(deskView(eng).dist).toBeGreaterThan(deskView(pods.find((p) => p.id === 'pmo')!).dist);
+  });
+});

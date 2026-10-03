@@ -37,6 +37,21 @@ export const VIEWS: Record<string, CameraView> = {
   atas: { label: 'Tampak atas', tx: -465, ty: 0, tz: 250, yaw: 0, pitch: 1.48, dist: 4500 },
 };
 
+/** Camera key for one team desk in the "Meja tim" picker. */
+export const DESK_VIEW_PREFIX = 'meja:';
+
+/** Spotlight on one team desk: aimed at its centre, framed by its size. */
+export function deskView(p: Pod): CameraView {
+  return { label: p.label, tx: p.x, ty: 70, tz: p.z, yaw: -0.3, pitch: 0.6, dist: Math.round(650 + Math.max(p.w, p.d) * 1.6) };
+}
+
+/** Every camera view by key: the fixed presets plus one per team desk (`meja:<id>`). */
+export function allViews(pods: Pod[]): Record<string, CameraView> {
+  const out: Record<string, CameraView> = { ...VIEWS };
+  for (const p of pods) out[DESK_VIEW_PREFIX + p.id] = deskView(p);
+  return out;
+}
+
 export const ROOM_SEATS = {
   ceo: [-775, -772, 0],
   cto: [775, -772, 0],

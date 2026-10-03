@@ -33,6 +33,8 @@ export interface SessionState {
   roleScores?: Map<RoleKey, number>;
   roleExplicit?: RoleHint['explicit'];
   autoRole?: 'explicit' | 'evidence' | 'fallback';
+  /** "Tandai sudah ditangani" time: no guessed wait again until new activity. */
+  waitHandledAt?: number;
   /** The session touched code; picks the fallback role while there is no evidence. */
   codeTouched?: boolean;
 }

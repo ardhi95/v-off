@@ -138,6 +138,15 @@ Format dan lokasi di bawah perlu **diverifikasi terhadap dokumentasi resmi terba
 | `idle` (Istirahat) | Tidak ada aktivitas ≥ 10 menit, atau di-set manual. Karakter pindah ke ruang santai |
 | `bersih` | Khusus office boy |
 
+**Sesi tanpa hooks** (hanya transkrip; aturan ditiru dari virtual-agents-office):
+
+- Pesan asisten dengan `stop_reason: end_turn` tanpa tool call = `Stop` (Menyimak, lalu Istirahat setelah 10 menit).
+- Tool `AskUserQuestion` / `ExitPlanMode` yang belum dijawab = `macet` "Ada pertanyaan untuk Anda".
+- Tool yang masih terbuka dan transkrip diam ≥ 90 detik (tanpa subagent aktif) = `macet` "Mungkin menunggu izin".
+  Tebakan ini tidak dihitung sebagai hambatan di Laporan, karena perintah yang lama terlihat sama.
+- Semua tebakan dari transkrip hilang sendiri setelah 30 menit tanpa aktivitas, supaya sesi yang ditinggal tidak
+  terblokir selamanya. Sesi yang punya hooks memakai event hooks, bukan tebakan ini.
+
 "Tandai sudah ditangani" mengubah `macet` menjadi `kerja` sampai ada galat baru. Override manual "Istirahat & main" berlaku sampai ada aktivitas baru atau tombol "Kembali bekerja" ditekan.
 
 ### 6.1 Kantor off (limit habis)

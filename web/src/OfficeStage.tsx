@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { AgentWithRuntime, Department, LimitState } from '../../src/shared/types.js';
 import { pickQuip } from './office/behavior.js';
-import { podsFrom, SLEEP_STYLE, STATUS_STYLE, VIEWS, type Bed, type PlaySpot } from './office/layout.js';
+import { allViews, DESK_VIEW_PREFIX, podsFrom, SLEEP_STYLE, STATUS_STYLE, VIEWS, type Bed, type PlaySpot } from './office/layout.js';
 import { OfficeRenderer } from './office/renderer.js';
 import { inkOn, officeOffText } from './present.js';
 import { toSceneAgents } from './sceneAgents.js';
@@ -174,8 +174,10 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
       setView('');
     },
   }), []);
+  const views = useMemo(() => allViews(pods), [pods]);
+  const deskPicked = view === 'tim' || view.startsWith(DESK_VIEW_PREFIX);
   const goView = (key: string) => {
-    const v = VIEWS[key];
+    const v = views[key];
     if (!v) return;
     cam()?.view(v);
     setView(key);
@@ -268,7 +270,21 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
       )}
       {noGL && <div className="stage-fallback">Browser ini tidak mendukung WebGL, jadi tampilan 3D tidak bisa ditampilkan.</div>}
       <div className="cam-bar" onPointerDown={stop}>
-        {Object.entries(VIEWS).map(([key, v]) => (
+        {Object.entries(VIEWS).map(([key, v]) => key === 'tim' ? (
+          // Spotlight any team desk; "Semua meja tim" is the old single preset.
+          <label key={key} className="cam-pick">
+            <span className="sr-only">Sorot meja tim</span>
+            <select
+              className={`cam${deskPicked ? ' is-on' : ''}`}
+              value={deskPicked ? view : ''}
+              onChange={(e) => goView(e.target.value)}
+            >
+              <option value="" disabled hidden>{v.label}</option>
+              <option value="tim">Semua meja tim</option>
+              {pods.map((p) => <option key={p.id} value={DESK_VIEW_PREFIX + p.id}>{p.label}</option>)}
+            </select>
+          </label>
+        ) : (
           <button key={key} type="button" className={`cam${view === key ? ' is-on' : ''}`} aria-pressed={view === key} onClick={() => goView(key)}>
             {v.label}
           </button>

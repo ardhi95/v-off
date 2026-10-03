@@ -14,6 +14,9 @@ import type { NormalizedEvent, SessionContext } from './types.js';
 
 type Line = Record<string, unknown>;
 
+/** Tools that stop and wait for the user's answer. */
+const WAITS_FOR_USER = new Set(['AskUserQuestion', 'ExitPlanMode']);
+
 function obj(v: unknown): Record<string, unknown> | undefined {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined;
 }
@@ -48,6 +51,8 @@ export function roleHintFor(name: string, input: unknown): NormalizedEvent['role
 export class TranscriptParser {
   private usageSeen = new Map<string, Usage>();
   private openTools = new Map<string, { subagent: boolean }>();
+  /** Message id of the last end_turn seen: every content-block line repeats the stop reason. */
+  private lastStopId: string | undefined;
 
   parseLine(raw: string): NormalizedEvent[] {
     const text = raw.trim();
@@ -84,6 +89,17 @@ export class TranscriptParser {
         return out;
       }
       const blocks = Array.isArray(message.content) ? message.content : [];
+      // Like virtual-agents-office: end_turn without a tool call means the turn is over and the
+      // agent waits for a prompt (the hook "Stop" event, for sessions without hooks).
+      const stopReason = s(message.stop_reason);
+      const hasTool = blocks.some((b) => s(obj(b)?.type) === 'tool_use');
+      if ((stopReason === 'end_turn' || stopReason === 'stop_sequence') && !hasTool) {
+        const id = s(message.id) ?? s(line.requestId);
+        if (!id || id !== this.lastStopId) {
+          this.lastStopId = id;
+          out.push({ ...base, signal: 'stop', kind: 'stop', detail: 'Selesai, menunggu prompt' });
+        }
+      }
       for (const b of blocks) {
         const block = obj(b);
         if (s(block?.type) !== 'tool_use') continue;
@@ -95,6 +111,13 @@ export class TranscriptParser {
           ...base, signal: 'tool-pre', kind: toolKind(name), detail: summarizeTool(name, block?.input), subagent, toolId: id,
           roleHint: roleHintFor(name, block?.input),
         });
+        // The agent asks the user something and waits for the answer (its tool_result).
+        if (WAITS_FOR_USER.has(name)) {
+          out.push({
+            ...base, signal: 'notify', kind: 'notify', detail: name === 'AskUserQuestion' ? 'Bertanya ke pengguna' : 'Minta persetujuan rencana',
+            block: { reason: 'Ada pertanyaan untuk Anda', hint: 'Agent menunggu jawaban Anda. Buka terminal sesi untuk menjawab.' },
+          });
+        }
       }
       return out;
     }

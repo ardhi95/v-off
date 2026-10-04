@@ -139,22 +139,6 @@ export function resumeCommand(sessionId: string, cwd?: string, message?: string)
   return `${cd}claude --resume ${shellQuote(sessionId)}${msg}`;
 }
 
-const LOG_SIZE = 8;
-
-/** Merge the fetched log with live events, newest first, without duplicates. */
-export function mergeLog(fetched: AgentEvent[], live: AgentEvent[], agentId: string, limit = LOG_SIZE): AgentEvent[] {
-  const seen = new Set<string>();
-  const out: AgentEvent[] = [];
-  for (const ev of [...live.filter((e) => e.agentId === agentId), ...fetched].sort((a, b) => b.ts - a.ts)) {
-    const key = `${ev.ts}|${ev.kind}|${ev.detail}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(ev);
-    if (out.length >= limit) break;
-  }
-  return out;
-}
-
 function luminance(hex: string): number {
   const n = parseInt(hex.replace('#', '').padEnd(6, '0').slice(0, 6), 16);
   const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
@@ -182,109 +166,10 @@ export function officeOffText(limit: LimitState): string {
   return `Limit pemakaian habis. Kantor off, semua agent tidur di Asrama ${until}.`;
 }
 
-// ---- Percakapan (chat view of a session) ----------------------------------
-
-export type ChatItem =
-  /** The user sent a prompt (size only, never its text). */
-  | { kind: 'user'; ts: number; text: string }
-  /** What the agent did until the next prompt/stop: the newest actions, plus how many came before. */
-  | { kind: 'agent'; ts: number; actions: AgentEvent[]; more: number }
-  /** Turn end, a question or approval wait, or a failure. */
-  | { kind: 'status'; ts: number; text: string; tone: 'done' | 'wait' | 'error' };
-
-/** Actions shown per agent bubble; older ones collapse into "+N aksi sebelumnya". */
+/** Actions shown per chat bubble; older ones collapse into "+N aksi sebelumnya". */
 export const CHAT_ACTIONS_SHOWN = 4;
-/** Newest chat items kept in view. */
-export const CHAT_ITEMS_MAX = 60;
 
-/** Events of one session from the fetched summary plus live feed entries, oldest first, deduplicated. */
-export function sessionEvents(fetched: AgentEvent[], live: AgentEvent[], sessionId: string): AgentEvent[] {
-  const seen = new Set<string>();
-  const out: AgentEvent[] = [];
-  for (const ev of [...fetched.filter((e) => e.sessionId === sessionId || !e.sessionId), ...live.filter((e) => e.sessionId === sessionId)]
-    .sort((a, b) => a.ts - b.ts)) {
-    const key = `${ev.ts}|${ev.kind}|${ev.detail}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(ev);
-  }
-  return out;
-}
-
-/**
- * Turn an action log (oldest first) into a conversation: each prompt is the user's bubble, the
- * tool calls up to the next prompt/stop are one agent bubble. Summaries only, as in the log.
- */
-export function toChat(events: AgentEvent[]): ChatItem[] {
-  const items: ChatItem[] = [];
-  let group: AgentEvent[] = [];
-  const flush = () => {
-    if (!group.length) return;
-    items.push({
-      kind: 'agent', ts: group[group.length - 1]!.ts,
-      actions: group.slice(-CHAT_ACTIONS_SHOWN), more: Math.max(0, group.length - CHAT_ACTIONS_SHOWN),
-    });
-    group = [];
-  };
-  for (const ev of events) {
-    if (ev.kind === 'prompt') {
-      flush();
-      items.push({ kind: 'user', ts: ev.ts, text: ev.detail });
-    } else if (ev.kind === 'stop') {
-      flush();
-      items.push({ kind: 'status', ts: ev.ts, text: ev.detail, tone: 'done' });
-    } else if (ev.kind === 'notify') {
-      flush();
-      items.push({ kind: 'status', ts: ev.ts, text: ev.detail, tone: 'wait' });
-    } else if (ev.kind === 'error') {
-      flush();
-      items.push({ kind: 'status', ts: ev.ts, text: ev.detail, tone: 'error' });
-    } else {
-      group.push(ev);
-    }
-  }
-  flush();
-  return items.slice(-CHAT_ITEMS_MAX);
-}
-
-/** Tab titles: the repo, plus the short session id when two tabs share a repo. */
-export function sessionTabLabels(sessions: { sessionId: string; repo?: string }[]): string[] {
-  const count = new Map<string, number>();
-  for (const s of sessions) count.set(s.repo ?? '', (count.get(s.repo ?? '') ?? 0) + 1);
-  return sessions.map((s) => {
-    const base = s.repo ?? 'sesi';
-    return (count.get(s.repo ?? '') ?? 0) > 1 ? `${base} · ${s.sessionId.slice(0, 4)}` : base;
-  });
-}
-
-export type LiveChatItem = ChatItem & { sessionId: string };
-
-/**
- * One live chat for an agent: every session's conversation (fetched history plus live feed
- * entries, which may name sessions not fetched yet) merged by time. Grouping stays per
- * session, so two sessions working at once never mix their actions in one bubble.
- */
-export function liveChat(fetched: Map<string, AgentEvent[]>, live: AgentEvent[], agentId: string): LiveChatItem[] {
-  const ids = new Set(fetched.keys());
-  for (const e of live) if (e.agentId === agentId && e.sessionId) ids.add(e.sessionId);
-  const all: LiveChatItem[] = [];
-  for (const sid of ids) {
-    const mine = live.filter((e) => e.agentId === agentId);
-    for (const item of toChat(sessionEvents(fetched.get(sid) ?? [], mine, sid))) all.push({ ...item, sessionId: sid });
-  }
-  return all.sort((a, b) => a.ts - b.ts).slice(-CHAT_ITEMS_MAX);
-}
-
-const SESSION_COLORS = ['#f5b83d', '#5b8def', '#35b87a', '#b28dff', '#2fb5c9', '#ef8a5c'];
-
-/** Stable colour per session id, so a session keeps its chip colour across reloads. */
-export function sessionColor(sessionId: string): string {
-  let h = 0;
-  for (const ch of sessionId) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return SESSION_COLORS[h % SESSION_COLORS.length]!;
-}
-
-/** Live indicator line for an active session, like "typing…" in a chat app. */
+/** Live indicator line for an agent, like "typing…" in a chat app. */
 export function presenceText(status: Status): string | null {
   switch (status) {
     case 'kerja': return 'sedang bekerja';
@@ -293,4 +178,57 @@ export function presenceText(status: Status): string | null {
     case 'macet': return 'terblokir';
     default: return null;
   }
+}
+
+// ---- Obrolan tim (team live chat) -----------------------------------------
+
+export type TeamChatItem =
+  /** Someone sent this agent a prompt (size only). */
+  | { kind: 'user'; ts: number; to: string; text: string }
+  /** A run of actions by one agent in one session; `mentions` = agents it called on (subagent, handoff). */
+  | { kind: 'agent'; ts: number; agentId: string; sessionId: string; actions: AgentEvent[]; more: number }
+  /** Turn end, question or failure of one agent. */
+  | { kind: 'status'; ts: number; agentId: string; sessionId: string; text: string; tone: 'done' | 'wait' | 'error' };
+
+/** Newest team chat items kept in view. */
+export const TEAM_CHAT_MAX = 80;
+
+/**
+ * The office as one group chat: the feed (any order) becomes messages, oldest first. Consecutive
+ * actions of the same agent and session form one bubble, like a chat app grouping messages.
+ */
+export function teamChat(events: AgentEvent[]): TeamChatItem[] {
+  const items: TeamChatItem[] = [];
+  for (const ev of [...events].sort((a, b) => a.ts - b.ts)) {
+    if (ev.kind === 'prompt') {
+      items.push({ kind: 'user', ts: ev.ts, to: ev.agentId, text: ev.detail });
+      continue;
+    }
+    const tone = ev.kind === 'stop' ? 'done' : ev.kind === 'notify' ? 'wait' : ev.kind === 'error' ? 'error' : null;
+    if (tone) {
+      items.push({ kind: 'status', ts: ev.ts, agentId: ev.agentId, sessionId: ev.sessionId, text: ev.detail, tone });
+      continue;
+    }
+    const last = items[items.length - 1];
+    if (last?.kind === 'agent' && last.agentId === ev.agentId && last.sessionId === ev.sessionId) {
+      last.actions.push(ev);
+      last.ts = ev.ts;
+    } else {
+      items.push({ kind: 'agent', ts: ev.ts, agentId: ev.agentId, sessionId: ev.sessionId, actions: [ev], more: 0 });
+    }
+  }
+  for (const it of items) {
+    if (it.kind !== 'agent' || it.actions.length <= CHAT_ACTIONS_SHOWN) continue;
+    it.more = it.actions.length - CHAT_ACTIONS_SHOWN;
+    it.actions = it.actions.slice(-CHAT_ACTIONS_SHOWN);
+  }
+  return items.slice(-TEAM_CHAT_MAX);
+}
+
+/** Agents a message points at: "@name" for any agent whose name or role appears in the text. */
+export function mentionsIn(text: string, agents: { id: string; name: string }[], self: string): string[] {
+  const t = text.toLowerCase();
+  return agents
+    .filter((a) => a.id !== self && a.name.length > 2 && new RegExp(`(^|[^a-z])${a.name.toLowerCase()}([^a-z]|$)`).test(t))
+    .map((a) => a.id);
 }

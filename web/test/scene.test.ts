@@ -153,11 +153,11 @@ describe('SSE state updates', () => {
     expect(applyAgentUpdate(s1, guest).agents).toHaveLength(19);
   });
 
-  it('keeps the newest 50 events first', () => {
+  it('keeps the newest 200 events first (the team chat history)', () => {
     let s = snap;
-    for (let i = 0; i < 60; i++) s = applyEvent(s, { ts: i, agentId: 'raka', sessionId: 's', source: 'claude-code', kind: 'edit', detail: String(i) });
-    expect(s.events).toHaveLength(50);
-    expect(s.events[0]!.ts).toBe(59);
+    for (let i = 0; i < 230; i++) s = applyEvent(s, { ts: i, agentId: 'raka', sessionId: 's', source: 'claude-code', kind: 'edit', detail: String(i) });
+    expect(s.events).toHaveLength(200);
+    expect(s.events[0]!.ts).toBe(229);
   });
 });
 

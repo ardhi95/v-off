@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentWithRuntime } from '../../src/shared/types.js';
 import { api } from './actions.js';
 import { ActivityFeed } from './ActivityFeed.js';
-import { AgentPanel } from './AgentPanel.js';
 import { useOfficeData } from './api.js';
 import { FilterBar } from './FilterBar.js';
 import { assignSpotsSticky, cleanerStops } from './office/behavior.js';
@@ -14,6 +13,7 @@ import { ReportPage } from './ReportPage.js';
 import { MessageDialog } from './MessageDialog.js';
 import { SessionDialog } from './SessionDialog.js';
 import { SettingsPage } from './SettingsPage.js';
+import { TeamChat } from './TeamChat.js';
 
 type Page = 'ruang' | 'laporan' | 'pengaturan';
 const PATHS: Record<Page, string> = { ruang: '/', laporan: '/laporan', pengaturan: '/pengaturan' };
@@ -79,15 +79,6 @@ function useClock(): string {
   return now;
 }
 
-function useNow(ms: number): number {
-  const [now, setNow] = useState(Date.now);
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), ms);
-    return () => clearInterval(t);
-  }, [ms]);
-  return now;
-}
-
 function useToast(): [string, (msg: string) => void] {
   const [toast, setToast] = useState('');
   const timer = useRef<ReturnType<typeof setTimeout>>();
@@ -137,7 +128,6 @@ export function App() {
   const [toast, showToast] = useToast();
   const stageRef = useRef<OfficeStageHandle>(null);
   const clock = useClock();
-  const now = useNow(30_000);
 
   const agents = useMemo(() => state?.agents ?? [], [state]);
   const departments = useMemo(() => state?.departments ?? [], [state]);
@@ -230,24 +220,19 @@ export function App() {
                 />
                 <ActivityFeed events={state.events} agents={agents} departments={departments} onSelect={setPicked} />
               </section>
-              {agent ? (
-                <AgentPanel
-                  agent={agent}
-                  departments={departments}
-                  events={state.events}
-                  spot={spots.get(agent.id)}
-                  asleep={beds.has(agent.id)}
-                  cleaner={state.cleaner}
-                  cleanerAction={cleanerAction}
-                  now={now}
-                  onToast={showToast}
-                  onFocus={() => stageRef.current?.focus(agent.id)}
-                  onOpenSession={setSessionOpen}
-                  onMessage={onMessage}
-                />
-              ) : (
-                <aside className="panel agent-panel empty-panel">Belum ada agent. Tambahkan di Pengaturan.</aside>
-              )}
+              <TeamChat
+                agents={agents}
+                departments={departments}
+                events={state.events}
+                selected={agent}
+                spot={agent ? spots.get(agent.id) : undefined}
+                asleep={agent ? beds.has(agent.id) : false}
+                onSelect={setPicked}
+                onFocus={() => agent && stageRef.current?.focus(agent.id)}
+                onToast={showToast}
+                onOpenSession={setSessionOpen}
+                onMessage={onMessage}
+              />
             </div>
             {sessionOpen && <SessionDialog sessionId={sessionOpen} onClose={() => setSessionOpen(null)} />}
             {messageTo && <MessageDialog {...messageTo} onClose={() => setMessageTo(null)} onToast={showToast} />}

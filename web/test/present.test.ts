@@ -3,8 +3,8 @@ import { defaultConfig } from '../../src/server/defaults.js';
 import type { AgentEvent, AgentWithRuntime, Status } from '../../src/shared/types.js';
 import { PLAY_SPOTS } from '../src/office/layout.js';
 import {
-  defaultSelection, feedLine, filterCounts, formatCost, formatDuration, formatTokens, locationOf, logKind, matchesFilter, mergeLog, resumeCommand,
-  liveChat, presenceText, sessionColor, sessionEvents, sessionTabLabels, toChat, type ChatItem,
+  defaultSelection, feedLine, filterCounts, formatCost, formatDuration, formatTokens, locationOf, logKind, matchesFilter, resumeCommand,
+  mentionsIn, teamChat, presenceText,
 } from '../src/present.js';
 
 const config = defaultConfig();
@@ -84,13 +84,6 @@ describe('feed and location', () => {
     const idle = agents(() => 'idle');
     expect(locationOf(find('raka', idle), config.departments)).toBe('Meja Tim Engineering (semua tempat main penuh)');
   });
-
-  it('merges fetched and live log entries without duplicates', () => {
-    const fetched = [ev(2, 'raka', 'edit', 'b'), ev(1, 'raka', 'read', 'a')];
-    const live = [ev(3, 'raka', 'run', 'c'), ev(2, 'raka', 'edit', 'b'), ev(4, 'nina', 'run', 'x')];
-    expect(mergeLog(fetched, live, 'raka').map((e) => e.detail)).toEqual(['c', 'b', 'a']);
-    expect(mergeLog(fetched, live, 'raka', 2)).toHaveLength(2);
-  });
 });
 
 describe('inkOn', () => {
@@ -111,61 +104,39 @@ describe('inkOn', () => {
   });
 });
 
-describe('chat view of a session', () => {
-  const ev = (ts: number, kind: AgentEvent['kind'], detail: string, sessionId = 's1'): AgentEvent =>
-    ({ ts, agentId: 'a', sessionId, source: 'claude-code', kind, detail });
+describe('team chat', () => {
+  const ev = (ts: number, agentId: string, kind: AgentEvent['kind'], detail: string, sessionId = 's'): AgentEvent =>
+    ({ ts, agentId, sessionId, source: 'claude-code', kind, detail });
 
-  it('groups tool calls between prompts into agent bubbles and keeps the newest actions', () => {
-    const chat = toChat([
-      ev(1, 'prompt', 'Prompt baru (80 karakter)'),
-      ...[2, 3, 4, 5, 6, 7].map((t) => ev(t, 'edit', `f${t}.ts`)),
-      ev(8, 'stop', 'Selesai, menunggu prompt'),
-      ev(9, 'prompt', 'Prompt baru (12 karakter)'),
-      ev(10, 'run', 'npm test'),
+  it('turns the feed into group messages, grouping runs of one agent and session', () => {
+    const chat = teamChat([
+      ev(5, 'raka', 'stop', 'Selesai, menunggu prompt'),
+      ev(1, 'wulan', 'prompt', 'Prompt baru (40 karakter)'),
+      ev(2, 'wulan', 'edit', 'WBS.md'),
+      ev(3, 'raka', 'edit', 'route.ts'),
+      ev(4, 'raka', 'run', 'npm test'),
     ]);
-    expect(chat.map((c) => c.kind)).toEqual(['user', 'agent', 'status', 'user', 'agent']);
-    const first = chat[1] as Extract<ChatItem, { kind: 'agent' }>;
-    expect(first.actions.map((a) => a.detail)).toEqual(['f4.ts', 'f5.ts', 'f6.ts', 'f7.ts']);
-    expect(first.more).toBe(2);
-    expect(chat[2]).toMatchObject({ tone: 'done' });
+    expect(chat.map((c) => `${c.kind}:${c.kind === 'user' ? c.to : c.agentId}`))
+      .toEqual(['user:wulan', 'agent:wulan', 'agent:raka', 'status:raka']);
+    expect((chat[2] as Extract<typeof chat[number], { kind: 'agent' }>).actions.map((a) => a.detail)).toEqual(['route.ts', 'npm test']);
   });
 
-  it('turns questions and failures into status bubbles that end the agent bubble', () => {
-    const chat = toChat([ev(1, 'run', 'ls'), ev(2, 'notify', 'Bertanya ke pengguna'), ev(3, 'error', 'API Error'), ev(4, 'read', 'a.ts')]);
-    expect(chat.map((c) => (c.kind === 'status' ? c.tone : c.kind))).toEqual(['agent', 'wait', 'error', 'agent']);
+  it('splits one agent across sessions and keeps the newest actions per bubble', () => {
+    const chat = teamChat([ev(1, 'a', 'edit', 'x', 's1'), ev(2, 'a', 'edit', 'y', 's2'), ...[3, 4, 5, 6, 7].map((t) => ev(t, 'a', 'read', `f${t}`, 's2'))]);
+    expect(chat).toHaveLength(2);
+    expect(chat[1]).toMatchObject({ more: 2 });
   });
 
-  it('merges fetched and live events of one session, oldest first, without duplicates', () => {
-    const a = ev(1, 'run', 'ls'), b = ev(2, 'edit', 'x.ts');
-    const merged = sessionEvents([a], [b, a, ev(3, 'run', 'other session', 's2')], 's1');
-    expect(merged.map((e) => e.detail)).toEqual(['ls', 'x.ts']);
-  });
-
-  it('labels tabs by repo and adds the session id only for duplicates', () => {
-    expect(sessionTabLabels([{ sessionId: 'abcd1', repo: 'planora' }, { sessionId: 'efgh2', repo: 'planora' }, { sessionId: 'ijkl3', repo: 'v-off' }]))
-      .toEqual(['planora · abcd', 'planora · efgh', 'v-off']);
-    expect(sessionTabLabels([{ sessionId: 'x' }])).toEqual(['sesi']);
+  it('finds @mentions of other agents by name', () => {
+    const agents = [{ id: 'raka', name: 'Raka' }, { id: 'yoga', name: 'Yoga' }, { id: 'wulan', name: 'Wulan' }];
+    expect(mentionsIn('Serah-terima ke Raka: endpoint milestone', agents, 'wulan')).toEqual(['raka']);
+    expect(mentionsIn('yogaku', agents, 'wulan')).toEqual([]);
+    expect(mentionsIn('Raka cek', agents, 'raka')).toEqual([]);
   });
 });
 
-describe('live chat across sessions', () => {
-  const ev = (ts: number, kind: AgentEvent['kind'], detail: string, sessionId: string, agentId = 'a'): AgentEvent =>
-    ({ ts, agentId, sessionId, source: 'claude-code', kind, detail });
-
-  it('merges sessions by time without mixing their actions', () => {
-    const fetched = new Map([
-      ['s1', [ev(1, 'prompt', 'P1', 's1'), ev(3, 'edit', 'a.ts', 's1')]],
-      ['s2', [ev(2, 'prompt', 'P2', 's2')]],
-    ]);
-    const live = [ev(4, 'run', 'npm test', 's2'), ev(5, 'edit', 'new.ts', 's3'), ev(6, 'edit', 'other agent', 's9', 'b')];
-    const chat = liveChat(fetched, live, 'a');
-    expect(chat.map((c) => `${c.sessionId}:${c.kind}`)).toEqual(['s1:user', 's2:user', 's1:agent', 's2:agent', 's3:agent']);
-    const s2 = chat[3] as Extract<ChatItem, { kind: 'agent' }>;
-    expect(s2.actions.map((a) => a.detail)).toEqual(['npm test']);
-  });
-
-  it('gives each session a stable colour and a presence line per status', () => {
-    expect(sessionColor('abc')).toBe(sessionColor('abc'));
+describe('presenceText', () => {
+  it('gives a live line per status, none when resting', () => {
     expect(presenceText('kerja')).toBe('sedang bekerja');
     expect(presenceText('idle')).toBeNull();
   });

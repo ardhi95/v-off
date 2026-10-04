@@ -96,13 +96,13 @@ Variabel lingkungan: `V_OFF_PORT` (default 4747), `V_OFF_HOST` (default 127.0.0.
   "Meja tim" di bar kamera), `renderer.ts` (loop, office boy, label).
 - `web/src/OfficeStage.tsx`: kanvas, label nama, kontrol kamera. Seret kiri = putar; seret kanan/tengah, Shift, atau
   toggle "Geser" = geser denah; dua jari = geser + pinch zoom. Pointer capture menjaga drag di luar kanvas. `api.ts`: `/api/state` + SSE. `actions.ts`: aksi REST.
-- Percakapan (panel Detail agent): `Conversation.tsx` adalah live chat tanpa tombol. Semua sesi aktif agent
-  (maks 4; tanpa sesi aktif: sesi terbaru) digabung urut waktu, tiap pesan diberi label sesi berwarna, entri SSE
-  baru langsung masuk, view mengikuti pesan terbaru, dan tiap sesi aktif punya baris kehadiran ("sedang bekerja"
-  dengan titik mengetik). Data: `GET /api/agents/:id/sessions` (`Store.agentSessions`) + `GET /api/sessions/:id`.
-  `present.ts` `liveChat`/`toChat`/`sessionColor`/`presenceText` (dites). Isi tetap ringkasan aksi, tidak pernah
-  teks prompt/jawaban.
-- `web/src/AgentPanel.tsx`, `FilterBar.tsx`, `ActivityFeed.tsx`, `SessionDialog.tsx`: interaksi (Fase 3).
+- Panel kanan = **Obrolan tim** (`TeamChat.tsx`): live chat grup seluruh kantor, menggantikan panel Detail agent.
+  Feed (SSE, buffer 200 di klien, 150 di snapshot) jadi pesan per agent (avatar, nama), prompt tampil sebagai
+  "Anda → @agent", nama agent lain di teks jadi mention, agent yang bekerja punya titik mengetik. Agent yang dipilih
+  di denah disematkan di atas (status, lokasi, hambatan + "Tandai sudah ditangani", aksi) dan pesannya disorot.
+  `present.ts` `teamChat`/`mentionsIn`/`presenceText` (dites). Isi tetap ringkasan aksi, tidak pernah teks
+  prompt/jawaban. `GET /api/agents/:id/sessions` (`Store.agentSessions`) tetap tersedia untuk daftar sesi agent.
+- `FilterBar.tsx`, `ActivityFeed.tsx`, `SessionDialog.tsx`, `MessageDialog.tsx`: interaksi (Fase 3).
   `present.ts`: helper murni (filter, format angka, teks feed, lokasi) yang dites.
 - Asrama: `layout.ts` (`DORM`, `BEDS`, `assignBeds`, rute `exitChain` untuk kasur), `staticScene.ts` (`buildDorm`,
   pintu di dinding kiri, grup `dormW`/`dormOn`/`dormOff`), `characters.ts` (`sleepBody`: badan berdiri yang

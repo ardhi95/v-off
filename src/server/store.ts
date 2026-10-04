@@ -11,7 +11,7 @@ import type { NormalizedEvent, SessionContext, Sink } from './sources/types.js';
 import { applyEvent, computeStatus, newSession, type SessionState } from './status.js';
 
 const FEED_LIMIT = 500;
-const SNAPSHOT_EVENTS = 50;
+const SNAPSHOT_EVENTS = 150;
 const USAGE_RETENTION_MS = 31 * 24 * 3600_000;
 export const SESSION_LOG_LIMIT = 300;
 const SESSION_LOGS_KEPT = 200;

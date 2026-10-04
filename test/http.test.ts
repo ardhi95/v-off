@@ -147,6 +147,13 @@ describe('HTTP API', () => {
 });
 
 describe('config file', () => {
+  it('GET /api/agents/:id/sessions lists sessions, 404 for an unknown agent', async () => {
+    const ok = await fetch(`${base}/api/agents/raka/sessions`);
+    expect(ok.status).toBe(200);
+    expect(Array.isArray(await ok.json())).toBe(true);
+    expect((await fetch(`${base}/api/agents/nope/sessions`)).status).toBe(404);
+  });
+
   it('saveConfig/loadConfig round-trip under V_OFF_HOME', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'v-off-'));
     const { loadConfig, saveConfig } = await import('../src/server/config.js');

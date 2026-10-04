@@ -4,6 +4,7 @@ import type { AgentEvent, AgentWithRuntime, Status } from '../../src/shared/type
 import { PLAY_SPOTS } from '../src/office/layout.js';
 import {
   defaultSelection, feedLine, filterCounts, formatCost, formatDuration, formatTokens, locationOf, logKind, matchesFilter, mergeLog, resumeCommand,
+  sessionEvents, sessionTabLabels, toChat, type ChatItem,
 } from '../src/present.js';
 
 const config = defaultConfig();
@@ -107,5 +108,42 @@ describe('inkOn', () => {
       const [x, y] = [lum(a.shirt), lum(inkOn(a.shirt))];
       expect((Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05), a.id).toBeGreaterThanOrEqual(4.5);
     }
+  });
+});
+
+describe('chat view of a session', () => {
+  const ev = (ts: number, kind: AgentEvent['kind'], detail: string, sessionId = 's1'): AgentEvent =>
+    ({ ts, agentId: 'a', sessionId, source: 'claude-code', kind, detail });
+
+  it('groups tool calls between prompts into agent bubbles and keeps the newest actions', () => {
+    const chat = toChat([
+      ev(1, 'prompt', 'Prompt baru (80 karakter)'),
+      ...[2, 3, 4, 5, 6, 7].map((t) => ev(t, 'edit', `f${t}.ts`)),
+      ev(8, 'stop', 'Selesai, menunggu prompt'),
+      ev(9, 'prompt', 'Prompt baru (12 karakter)'),
+      ev(10, 'run', 'npm test'),
+    ]);
+    expect(chat.map((c) => c.kind)).toEqual(['user', 'agent', 'status', 'user', 'agent']);
+    const first = chat[1] as Extract<ChatItem, { kind: 'agent' }>;
+    expect(first.actions.map((a) => a.detail)).toEqual(['f4.ts', 'f5.ts', 'f6.ts', 'f7.ts']);
+    expect(first.more).toBe(2);
+    expect(chat[2]).toMatchObject({ tone: 'done' });
+  });
+
+  it('turns questions and failures into status bubbles that end the agent bubble', () => {
+    const chat = toChat([ev(1, 'run', 'ls'), ev(2, 'notify', 'Bertanya ke pengguna'), ev(3, 'error', 'API Error'), ev(4, 'read', 'a.ts')]);
+    expect(chat.map((c) => (c.kind === 'status' ? c.tone : c.kind))).toEqual(['agent', 'wait', 'error', 'agent']);
+  });
+
+  it('merges fetched and live events of one session, oldest first, without duplicates', () => {
+    const a = ev(1, 'run', 'ls'), b = ev(2, 'edit', 'x.ts');
+    const merged = sessionEvents([a], [b, a, ev(3, 'run', 'other session', 's2')], 's1');
+    expect(merged.map((e) => e.detail)).toEqual(['ls', 'x.ts']);
+  });
+
+  it('labels tabs by repo and adds the session id only for duplicates', () => {
+    expect(sessionTabLabels([{ sessionId: 'abcd1', repo: 'planora' }, { sessionId: 'efgh2', repo: 'planora' }, { sessionId: 'ijkl3', repo: 'v-off' }]))
+      .toEqual(['planora · abcd', 'planora · efgh', 'v-off']);
+    expect(sessionTabLabels([{ sessionId: 'x' }])).toEqual(['sesi']);
   });
 });

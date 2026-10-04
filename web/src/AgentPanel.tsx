@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { AgentEvent, AgentWithRuntime, CleanerState, Department } from '../../src/shared/types.js';
+import type { AgentEvent, AgentWithRuntime, CleanerState, Department, SessionOverview } from '../../src/shared/types.js';
 import { api } from './actions.js';
+import { Conversation } from './Conversation.js';
 import { SLEEP_STYLE, SPECIES, STATUS_STYLE, type PlaySpot } from './office/layout.js';
 import { formatBytes, formatCost, formatDuration, formatTime, formatTokens, inkOn, locationOf, logKind, mergeLog } from './present.js';
 
@@ -22,6 +23,8 @@ interface Props {
 
 export function AgentPanel({ agent: a, departments, events, spot, asleep = false, cleaner, cleanerAction, now, onToast, onFocus, onOpenSession, onMessage }: Props) {
   const [fetched, setFetched] = useState<AgentEvent[]>([]);
+  const [sessions, setSessions] = useState<SessionOverview[]>([]);
+  const [sel, setSel] = useState('');
   const [busy, setBusy] = useState(false);
   const rt = a.runtime;
   const st = asleep ? SLEEP_STYLE : STATUS_STYLE[rt.status];
@@ -36,7 +39,25 @@ export function AgentPanel({ agent: a, departments, events, spot, asleep = false
     };
   }, [a.id]);
 
+  // Sessions of this agent: loaded when the agent changes, refreshed (debounced) as its activity moves.
+  useEffect(() => {
+    setSessions([]);
+    setSel('');
+  }, [a.id]);
+  useEffect(() => {
+    let live = true;
+    const t = setTimeout(() => {
+      api.sessions(a.id).then((l) => live && setSessions(l), () => undefined);
+    }, 250);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [a.id, rt.status, rt.lastActivityAt, rt.sessionId]);
+
   const log = useMemo(() => mergeLog(fetched, events, a.id), [fetched, events, a.id]);
+  // "Lihat sesi lengkap" and "Kirim pesan" follow the tab in view; the newest session otherwise.
+  const shownSession = (sessions.find((s) => s.sessionId === sel) ?? sessions[0])?.sessionId ?? rt.sessionId;
 
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
@@ -140,6 +161,9 @@ export function AgentPanel({ agent: a, departments, events, spot, asleep = false
           </div>
         </div>
 
+        {sessions.length > 0 ? (
+          <Conversation agentName={a.name} sessions={sessions} selected={sel} onSelect={setSel} events={events} />
+        ) : (
         <div>
           <h3 className="label">Log aktivitas</h3>
           {log.length === 0 ? (
@@ -159,12 +183,13 @@ export function AgentPanel({ agent: a, departments, events, spot, asleep = false
             </ol>
           )}
         </div>
+        )}
 
         <div className="actions">
-          <button type="button" className="btn btn-blue" disabled={!rt.sessionId} onClick={() => rt.sessionId && onOpenSession(rt.sessionId)}>
+          <button type="button" className="btn btn-blue" disabled={!shownSession} onClick={() => shownSession && onOpenSession(shownSession)}>
             Lihat sesi lengkap
           </button>
-          <button type="button" className="btn btn-dark" disabled={!rt.sessionId} onClick={() => rt.sessionId && onMessage(rt.sessionId)}>
+          <button type="button" className="btn btn-dark" disabled={!shownSession} onClick={() => shownSession && onMessage(shownSession)}>
             Kirim pesan
           </button>
           <button type="button" className="btn btn-outline" onClick={onFocus}>Arahkan kamera</button>

@@ -187,6 +187,23 @@ export interface CleanerState {
   lastScanAt: number | null;
 }
 
+/** One session of an agent for the "Percakapan" tabs. Actions only, never prompt text. */
+export interface SessionOverview {
+  sessionId: string;
+  cwd?: string;
+  repo?: string;
+  gitBranch?: string;
+  startedAt: number;
+  lastActivityAt: number;
+  endedAt?: number;
+  /** Status of this session alone (the agent's own status follows its newest session). */
+  status: Status;
+  /** Not resting: working, listening, meeting or blocked. */
+  active: boolean;
+  lastAction?: string;
+  block?: { reason: string; hint: string; at: number };
+}
+
 /** Privacy-safe summary of one session for "Lihat sesi lengkap" (no prompt text). */
 export interface SessionSummary {
   sessionId: string;

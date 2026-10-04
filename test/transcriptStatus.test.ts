@@ -105,3 +105,37 @@ describe('Store: transcript-only status', () => {
     expect(raka().status).toBe('kerja');
   });
 });
+
+describe('Store.agentSessions (Percakapan tabs)', () => {
+  const T = new Date('2026-10-03T09:00:00').getTime();
+  const tool = (sessionId: string, at: number, file = '/w/api/a.ts') => ({
+    ts: at, sessionId, source: 'claude-code' as const, channel: 'hook' as const, signal: 'tool-pre' as const,
+    kind: 'edit' as const, detail: file, ctx: { cwd: '/w/api' }, toolId: `t-${sessionId}-${at}`,
+  });
+
+  it('lists the agent sessions, active first, each with its own status', () => {
+    let now = T;
+    const config = defaultConfig();
+    config.agents.find((a) => a.id === 'raka')!.match.push({ cwdGlob: '/w/api/**' });
+    const store = new Store(config, () => now);
+    store.ingest([tool('old', T - 3_600_000), { ...tool('old', T - 3_500_000), signal: 'stop' as const, kind: 'stop' as const, toolId: undefined }]);
+    store.ingest([tool('live', T)]);
+    now = T + 5000;
+    const list = store.agentSessions('raka');
+    expect(list.map((s) => [s.sessionId, s.status, s.active])).toEqual([['live', 'kerja', true], ['old', 'idle', false]]);
+    expect(list[0]).toMatchObject({ repo: 'api', lastAction: '/w/api/a.ts' });
+    expect(store.agentSessions('yoga')).toEqual([]);
+  });
+
+  it('drops sessions quiet for more than a day and carries the block of a blocked one', () => {
+    let now = T;
+    const config = defaultConfig();
+    config.agents.find((a) => a.id === 'raka')!.match.push({ cwdGlob: '/w/api/**' });
+    const store = new Store(config, () => now);
+    store.ingest([tool('s', T)]);
+    store.ingest(parseHookPayload({ session_id: 's', cwd: '/w/api', hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: 'rm x' } }, T + 1000));
+    expect(store.agentSessions('raka')[0]).toMatchObject({ status: 'macet', block: { reason: 'Menunggu izin: Bash' } });
+    now = T + 25 * 3_600_000;
+    expect(store.agentSessions('raka')).toEqual([]);
+  });
+});

@@ -196,6 +196,7 @@ GET  /api/state              -> { agents, departments, events(last 50), cleaner 
 GET  /api/stream             -> SSE: agent-updated, event-added, cleaner-updated, limit-updated
 POST /api/hook               <- payload hook Claude Code
 POST /api/status             <- webhook umum
+GET  /api/agents/:id/sessions -> sesi agent (aktif dulu) untuk tab Percakapan; riwayat per sesi: GET /api/sessions/:id
 POST /api/agents/:id/resolve -> tandai hambatan ditangani
 POST /api/agents/:id/idle    {idle: boolean}
 GET  /api/report?period=day|week|month

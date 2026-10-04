@@ -224,13 +224,17 @@ export function createServer(store: Store, opts: ServerOptions = {}): http.Serve
         return send(res, 200, summary);
       }
 
-      const agentAction = /^\/api\/agents\/([^/]+)\/(resolve|idle|log)$/.exec(url.pathname);
+      const agentAction = /^\/api\/agents\/([^/]+)\/(resolve|idle|log|sessions)$/.exec(url.pathname);
       if (agentAction) {
         const id = decodeURIComponent(agentAction[1]!);
         const action = agentAction[2];
         if (method === 'GET' && action === 'log') {
           if (!store.agentById(id)) throw new HttpError(404, 'Agent tidak ditemukan.');
           return send(res, 200, store.agentLog(id));
+        }
+        if (method === 'GET' && action === 'sessions') {
+          if (!store.agentById(id)) throw new HttpError(404, 'Agent tidak ditemukan.');
+          return send(res, 200, store.agentSessions(id));
         }
         if (method === 'POST' && action === 'resolve') {
           if (!store.resolve(id)) throw new HttpError(404, 'Agent tidak ditemukan.');

@@ -1,4 +1,4 @@
-import type { AgentEvent, SessionSummary } from '../../src/shared/types.js';
+import type { AgentEvent, SessionOverview, SessionSummary } from '../../src/shared/types.js';
 
 async function call<T>(method: string, url: string, body?: unknown): Promise<T> {
   const res = await fetch(url, {
@@ -15,6 +15,7 @@ export const api = {
   resolve: (id: string) => call<{ ok: true }>('POST', `/api/agents/${encodeURIComponent(id)}/resolve`, {}),
   setIdle: (id: string, idle: boolean) => call<{ ok: true }>('POST', `/api/agents/${encodeURIComponent(id)}/idle`, { idle }),
   log: (id: string) => call<AgentEvent[]>('GET', `/api/agents/${encodeURIComponent(id)}/log`),
+  sessions: (id: string) => call<SessionOverview[]>('GET', `/api/agents/${encodeURIComponent(id)}/sessions`),
   session: (id: string) => call<SessionSummary>('GET', `/api/sessions/${encodeURIComponent(id)}`),
   openOffice: () => call<{ ok: true }>('POST', '/api/limit/clear', {}),
 };

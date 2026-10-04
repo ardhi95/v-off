@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import path from 'node:path';
 import type {
   Agent, AgentEvent, AgentRuntime, AgentWithRuntime, BlockRecord, CleanerState, Config, LimitState, ModelPrice, Period, Report, ReportRow,
-  SessionSummary, StateSnapshot, Status, Usage,
+  SessionOverview, SessionSummary, StateSnapshot, Status, Usage,
 } from '../shared/types.js';
 import { clip } from './summarize.js';
 import { matchAgent } from './matcher.js';
@@ -17,6 +17,8 @@ export const SESSION_LOG_LIMIT = 300;
 const SESSION_LOGS_KEPT = 200;
 /** Transcript-only sessions: a tool still open after this long probably waits for approval. */
 export const PENDING_TOOL_MS = 90_000;
+/** Percakapan tabs skip sessions quiet for longer than this. */
+const SESSION_TAB_MAX_AGE_MS = 24 * 3600_000;
 /** Guessed (auto) waits older than this are dropped: the session was left, not waiting. */
 export const AUTO_BLOCK_STALE_MS = 30 * 60_000;
 /** Office stays off this long when a limit message names no reset time (Claude's session window). */
@@ -401,6 +403,29 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
       if (this.feed[i]!.agentId === agentId) out.push(this.feed[i]!);
     }
     return out;
+  }
+
+  /**
+   * Sessions classified into one agent, active ones first, then the most recent. Sessions
+   * quiet for more than a day are left out. Each carries its own status.
+   */
+  agentSessions(agentId: string, limit = 12): SessionOverview[] {
+    const now = this.clock();
+    const out: SessionOverview[] = [];
+    for (const s of this.sessions.values()) {
+      if (s.agentId !== agentId) continue;
+      if (now - Math.max(s.lastActivityAt, s.lastStopAt ?? 0) > SESSION_TAB_MAX_AGE_MS) continue;
+      const status = computeStatus(s, {}, now, this.config.rules);
+      out.push({
+        sessionId: s.sessionId, cwd: s.cwd, repo: s.cwd ? path.basename(s.cwd) : undefined, gitBranch: s.gitBranch,
+        startedAt: s.startedAt, lastActivityAt: s.lastActivityAt, endedAt: s.endedAt,
+        status, active: status !== 'idle', lastAction: s.lastAction,
+        block: status === 'macet' && s.block ? { reason: s.block.reason, hint: s.block.hint, at: s.block.at } : undefined,
+      });
+    }
+    return out
+      .sort((a, b) => Number(b.active) - Number(a.active) || b.lastActivityAt - a.lastActivityAt)
+      .slice(0, limit);
   }
 
   sessionSummary(sessionId: string): SessionSummary | undefined {

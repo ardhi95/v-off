@@ -119,16 +119,8 @@ select.cam option { background: #1b1f27; color: #f2f3f6; }
 .log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .log li { display: grid; grid-template-columns: 46px 78px minmax(0, 1fr); gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid #222837; font-size: 13px; }
 .convo { display: flex; flex-direction: column; gap: 8px; }
-.convo-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
-.convo-tab { flex: 0 0 auto; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 7px; align-items: center; text-align: left; min-height: 44px; max-width: 190px; padding: 6px 12px; border-radius: 12px; border: 1px solid var(--line); background: #1b2029; color: var(--text); cursor: pointer; font-family: var(--font); }
-.convo-tab:hover { background: #232a37; }
-.convo-tab.is-on { border-color: var(--accent); background: #2a2415; }
-.convo-tab.is-quiet:not(.is-on) { opacity: 0.75; }
-.convo-tab:focus-visible, .convo-feed:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.convo-feed:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .convo-dot { width: 9px; height: 9px; border-radius: 50%; grid-row: 1 / 3; }
-.convo-tab-name { font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.convo-tab-sub { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.convo-block { margin: 0; padding: 8px 12px; border-radius: 10px; background: #2a1712; border: 1px solid #a84a2c; font-size: 13px; }
 .convo-feed { display: flex; flex-direction: column; gap: 10px; max-height: 340px; overflow-y: auto; padding: 10px; border-radius: 14px; background: #12161d; border: 1px solid var(--line); }
 .chat-row { display: flex; }
 .chat-user { justify-content: flex-end; }
@@ -143,7 +135,19 @@ select.cam option { background: #1b1f27; color: #f2f3f6; }
 .chat-status { display: flex; justify-content: center; align-items: center; gap: 8px; }
 .chat-status span { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
 .chat-status time { font-size: 10px; }
-@media (prefers-reduced-motion: reduce) { .convo-feed { scroll-behavior: auto; } }
+.convo .label { display: flex; align-items: center; gap: 8px; }
+.chat-sess { display: inline-block; margin-left: 4px; padding: 0 6px; border: 1px solid; border-radius: 999px; font-size: 10px; font-weight: 600; }
+.chat-presence { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); padding: 2px 4px; }
+.chat-presence strong { color: var(--text); }
+.chat-presence.is-block { color: #ffa98a; }
+.typing { display: inline-flex; gap: 3px; padding: 6px 8px; border-radius: 999px; background: #1b2029; border: 1px solid var(--line); }
+.typing i { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); animation: typing 1.2s infinite ease-in-out; }
+.typing i:nth-child(2) { animation-delay: 0.15s; }
+.typing i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes typing { 0%, 60%, 100% { opacity: 0.3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+.chat-in { animation: chat-in 0.25s ease-out; }
+@keyframes chat-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .typing i, .chat-in { animation: none; } }
 .log-kind { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; text-align: center; }
 .log-detail { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }

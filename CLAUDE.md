@@ -96,10 +96,12 @@ Variabel lingkungan: `V_OFF_PORT` (default 4747), `V_OFF_HOST` (default 127.0.0.
   "Meja tim" di bar kamera), `renderer.ts` (loop, office boy, label).
 - `web/src/OfficeStage.tsx`: kanvas, label nama, kontrol kamera. Seret kiri = putar; seret kanan/tengah, Shift, atau
   toggle "Geser" = geser denah; dua jari = geser + pinch zoom. Pointer capture menjaga drag di luar kanvas. `api.ts`: `/api/state` + SSE. `actions.ts`: aksi REST.
-- Percakapan (panel Detail agent): `Conversation.tsx` menampilkan tab per sesi aktif milik agent (data dari
-  `GET /api/agents/:id/sessions` → `Store.agentSessions`, sesi sepi > 1 hari dibuang) dalam bentuk chat. `present.ts`
-  `toChat`/`sessionEvents`/`sessionTabLabels` (dites) menyusun bubble dari log aksi; isinya tetap ringkasan aksi,
-  tidak pernah teks prompt/jawaban. "Lihat sesi lengkap" dan "Kirim pesan" mengikuti tab yang dipilih.
+- Percakapan (panel Detail agent): `Conversation.tsx` adalah live chat tanpa tombol. Semua sesi aktif agent
+  (maks 4; tanpa sesi aktif: sesi terbaru) digabung urut waktu, tiap pesan diberi label sesi berwarna, entri SSE
+  baru langsung masuk, view mengikuti pesan terbaru, dan tiap sesi aktif punya baris kehadiran ("sedang bekerja"
+  dengan titik mengetik). Data: `GET /api/agents/:id/sessions` (`Store.agentSessions`) + `GET /api/sessions/:id`.
+  `present.ts` `liveChat`/`toChat`/`sessionColor`/`presenceText` (dites). Isi tetap ringkasan aksi, tidak pernah
+  teks prompt/jawaban.
 - `web/src/AgentPanel.tsx`, `FilterBar.tsx`, `ActivityFeed.tsx`, `SessionDialog.tsx`: interaksi (Fase 3).
   `present.ts`: helper murni (filter, format angka, teks feed, lokasi) yang dites.
 - Asrama: `layout.ts` (`DORM`, `BEDS`, `assignBeds`, rute `exitChain` untuk kasur), `staticScene.ts` (`buildDorm`,

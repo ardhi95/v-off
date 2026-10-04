@@ -256,3 +256,41 @@ export function sessionTabLabels(sessions: { sessionId: string; repo?: string }[
     return (count.get(s.repo ?? '') ?? 0) > 1 ? `${base} · ${s.sessionId.slice(0, 4)}` : base;
   });
 }
+
+export type LiveChatItem = ChatItem & { sessionId: string };
+
+/**
+ * One live chat for an agent: every session's conversation (fetched history plus live feed
+ * entries, which may name sessions not fetched yet) merged by time. Grouping stays per
+ * session, so two sessions working at once never mix their actions in one bubble.
+ */
+export function liveChat(fetched: Map<string, AgentEvent[]>, live: AgentEvent[], agentId: string): LiveChatItem[] {
+  const ids = new Set(fetched.keys());
+  for (const e of live) if (e.agentId === agentId && e.sessionId) ids.add(e.sessionId);
+  const all: LiveChatItem[] = [];
+  for (const sid of ids) {
+    const mine = live.filter((e) => e.agentId === agentId);
+    for (const item of toChat(sessionEvents(fetched.get(sid) ?? [], mine, sid))) all.push({ ...item, sessionId: sid });
+  }
+  return all.sort((a, b) => a.ts - b.ts).slice(-CHAT_ITEMS_MAX);
+}
+
+const SESSION_COLORS = ['#f5b83d', '#5b8def', '#35b87a', '#b28dff', '#2fb5c9', '#ef8a5c'];
+
+/** Stable colour per session id, so a session keeps its chip colour across reloads. */
+export function sessionColor(sessionId: string): string {
+  let h = 0;
+  for (const ch of sessionId) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return SESSION_COLORS[h % SESSION_COLORS.length]!;
+}
+
+/** Live indicator line for an active session, like "typing…" in a chat app. */
+export function presenceText(status: Status): string | null {
+  switch (status) {
+    case 'kerja': return 'sedang bekerja';
+    case 'bicara': return 'memimpin rapat subagent';
+    case 'simak': return 'menunggu prompt Anda';
+    case 'macet': return 'terblokir';
+    default: return null;
+  }
+}

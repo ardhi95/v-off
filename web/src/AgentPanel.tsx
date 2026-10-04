@@ -24,7 +24,6 @@ interface Props {
 export function AgentPanel({ agent: a, departments, events, spot, asleep = false, cleaner, cleanerAction, now, onToast, onFocus, onOpenSession, onMessage }: Props) {
   const [fetched, setFetched] = useState<AgentEvent[]>([]);
   const [sessions, setSessions] = useState<SessionOverview[]>([]);
-  const [sel, setSel] = useState('');
   const [busy, setBusy] = useState(false);
   const rt = a.runtime;
   const st = asleep ? SLEEP_STYLE : STATUS_STYLE[rt.status];
@@ -42,7 +41,6 @@ export function AgentPanel({ agent: a, departments, events, spot, asleep = false
   // Sessions of this agent: loaded when the agent changes, refreshed (debounced) as its activity moves.
   useEffect(() => {
     setSessions([]);
-    setSel('');
   }, [a.id]);
   useEffect(() => {
     let live = true;
@@ -56,8 +54,8 @@ export function AgentPanel({ agent: a, departments, events, spot, asleep = false
   }, [a.id, rt.status, rt.lastActivityAt, rt.sessionId]);
 
   const log = useMemo(() => mergeLog(fetched, events, a.id), [fetched, events, a.id]);
-  // "Lihat sesi lengkap" and "Kirim pesan" follow the tab in view; the newest session otherwise.
-  const shownSession = (sessions.find((s) => s.sessionId === sel) ?? sessions[0])?.sessionId ?? rt.sessionId;
+  // "Lihat sesi lengkap" and "Kirim pesan" go to the newest active session.
+  const shownSession = sessions[0]?.sessionId ?? rt.sessionId;
 
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
@@ -162,7 +160,7 @@ export function AgentPanel({ agent: a, departments, events, spot, asleep = false
         </div>
 
         {sessions.length > 0 ? (
-          <Conversation agentName={a.name} sessions={sessions} selected={sel} onSelect={setSel} events={events} />
+          <Conversation agentId={a.id} agentName={a.name} sessions={sessions} events={events} />
         ) : (
         <div>
           <h3 className="label">Log aktivitas</h3>

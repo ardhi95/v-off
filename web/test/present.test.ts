@@ -4,7 +4,7 @@ import type { AgentEvent, AgentWithRuntime, Status } from '../../src/shared/type
 import { PLAY_SPOTS } from '../src/office/layout.js';
 import {
   defaultSelection, feedLine, filterCounts, formatCost, formatDuration, formatTokens, locationOf, logKind, matchesFilter, mergeLog, resumeCommand,
-  sessionEvents, sessionTabLabels, toChat, type ChatItem,
+  liveChat, presenceText, sessionColor, sessionEvents, sessionTabLabels, toChat, type ChatItem,
 } from '../src/present.js';
 
 const config = defaultConfig();
@@ -145,5 +145,28 @@ describe('chat view of a session', () => {
     expect(sessionTabLabels([{ sessionId: 'abcd1', repo: 'planora' }, { sessionId: 'efgh2', repo: 'planora' }, { sessionId: 'ijkl3', repo: 'v-off' }]))
       .toEqual(['planora · abcd', 'planora · efgh', 'v-off']);
     expect(sessionTabLabels([{ sessionId: 'x' }])).toEqual(['sesi']);
+  });
+});
+
+describe('live chat across sessions', () => {
+  const ev = (ts: number, kind: AgentEvent['kind'], detail: string, sessionId: string, agentId = 'a'): AgentEvent =>
+    ({ ts, agentId, sessionId, source: 'claude-code', kind, detail });
+
+  it('merges sessions by time without mixing their actions', () => {
+    const fetched = new Map([
+      ['s1', [ev(1, 'prompt', 'P1', 's1'), ev(3, 'edit', 'a.ts', 's1')]],
+      ['s2', [ev(2, 'prompt', 'P2', 's2')]],
+    ]);
+    const live = [ev(4, 'run', 'npm test', 's2'), ev(5, 'edit', 'new.ts', 's3'), ev(6, 'edit', 'other agent', 's9', 'b')];
+    const chat = liveChat(fetched, live, 'a');
+    expect(chat.map((c) => `${c.sessionId}:${c.kind}`)).toEqual(['s1:user', 's2:user', 's1:agent', 's2:agent', 's3:agent']);
+    const s2 = chat[3] as Extract<ChatItem, { kind: 'agent' }>;
+    expect(s2.actions.map((a) => a.detail)).toEqual(['npm test']);
+  });
+
+  it('gives each session a stable colour and a presence line per status', () => {
+    expect(sessionColor('abc')).toBe(sessionColor('abc'));
+    expect(presenceText('kerja')).toBe('sedang bekerja');
+    expect(presenceText('idle')).toBeNull();
   });
 });

@@ -3,7 +3,8 @@ import { defaultConfig } from '../../src/server/defaults.js';
 import type { AgentEvent, AgentWithRuntime, Status } from '../../src/shared/types.js';
 import { PLAY_SPOTS } from '../src/office/layout.js';
 import {
-  defaultSelection, feedLine, filterCounts, formatCost, formatDuration, formatTokens, locationOf, logKind, matchesFilter, mergeLog, resumeCommand,
+  defaultSelection, feedLine, filterCounts, formatCost, formatDuration, formatTokens, locationOf, logKind, matchesFilter, resumeCommand,
+  mentionsIn, teamChat, presenceText,
 } from '../src/present.js';
 
 const config = defaultConfig();
@@ -83,13 +84,6 @@ describe('feed and location', () => {
     const idle = agents(() => 'idle');
     expect(locationOf(find('raka', idle), config.departments)).toBe('Meja Tim Engineering (semua tempat main penuh)');
   });
-
-  it('merges fetched and live log entries without duplicates', () => {
-    const fetched = [ev(2, 'raka', 'edit', 'b'), ev(1, 'raka', 'read', 'a')];
-    const live = [ev(3, 'raka', 'run', 'c'), ev(2, 'raka', 'edit', 'b'), ev(4, 'nina', 'run', 'x')];
-    expect(mergeLog(fetched, live, 'raka').map((e) => e.detail)).toEqual(['c', 'b', 'a']);
-    expect(mergeLog(fetched, live, 'raka', 2)).toHaveLength(2);
-  });
 });
 
 describe('inkOn', () => {
@@ -107,5 +101,43 @@ describe('inkOn', () => {
       const [x, y] = [lum(a.shirt), lum(inkOn(a.shirt))];
       expect((Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05), a.id).toBeGreaterThanOrEqual(4.5);
     }
+  });
+});
+
+describe('team chat', () => {
+  const ev = (ts: number, agentId: string, kind: AgentEvent['kind'], detail: string, sessionId = 's'): AgentEvent =>
+    ({ ts, agentId, sessionId, source: 'claude-code', kind, detail });
+
+  it('turns the feed into group messages, grouping runs of one agent and session', () => {
+    const chat = teamChat([
+      ev(5, 'raka', 'stop', 'Selesai, menunggu prompt'),
+      ev(1, 'wulan', 'prompt', 'Prompt baru (40 karakter)'),
+      ev(2, 'wulan', 'edit', 'WBS.md'),
+      ev(3, 'raka', 'edit', 'route.ts'),
+      ev(4, 'raka', 'run', 'npm test'),
+    ]);
+    expect(chat.map((c) => `${c.kind}:${c.kind === 'user' ? c.to : c.agentId}`))
+      .toEqual(['user:wulan', 'agent:wulan', 'agent:raka', 'status:raka']);
+    expect((chat[2] as Extract<typeof chat[number], { kind: 'agent' }>).actions.map((a) => a.detail)).toEqual(['route.ts', 'npm test']);
+  });
+
+  it('splits one agent across sessions and keeps the newest actions per bubble', () => {
+    const chat = teamChat([ev(1, 'a', 'edit', 'x', 's1'), ev(2, 'a', 'edit', 'y', 's2'), ...[3, 4, 5, 6, 7].map((t) => ev(t, 'a', 'read', `f${t}`, 's2'))]);
+    expect(chat).toHaveLength(2);
+    expect(chat[1]).toMatchObject({ more: 2 });
+  });
+
+  it('finds @mentions of other agents by name', () => {
+    const agents = [{ id: 'raka', name: 'Raka' }, { id: 'yoga', name: 'Yoga' }, { id: 'wulan', name: 'Wulan' }];
+    expect(mentionsIn('Serah-terima ke Raka: endpoint milestone', agents, 'wulan')).toEqual(['raka']);
+    expect(mentionsIn('yogaku', agents, 'wulan')).toEqual([]);
+    expect(mentionsIn('Raka cek', agents, 'raka')).toEqual([]);
+  });
+});
+
+describe('presenceText', () => {
+  it('gives a live line per status, none when resting', () => {
+    expect(presenceText('kerja')).toBe('sedang bekerja');
+    expect(presenceText('idle')).toBeNull();
   });
 });

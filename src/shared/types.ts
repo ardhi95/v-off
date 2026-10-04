@@ -96,6 +96,8 @@ export interface Block {
   reason: string;
   hint: string;
   at: number;
+  /** Guessed from a transcript (no hooks): cleared by itself once the session goes quiet. */
+  auto?: boolean;
 }
 
 /** Live, derived state of an agent. Never persisted to config. */
@@ -183,6 +185,23 @@ export interface CleanerState {
   items: CleanerItem[];
   totalBytes: number;
   lastScanAt: number | null;
+}
+
+/** One session of an agent for the "Percakapan" tabs. Actions only, never prompt text. */
+export interface SessionOverview {
+  sessionId: string;
+  cwd?: string;
+  repo?: string;
+  gitBranch?: string;
+  startedAt: number;
+  lastActivityAt: number;
+  endedAt?: number;
+  /** Status of this session alone (the agent's own status follows its newest session). */
+  status: Status;
+  /** Not resting: working, listening, meeting or blocked. */
+  active: boolean;
+  lastAction?: string;
+  block?: { reason: string; hint: string; at: number };
 }
 
 /** Privacy-safe summary of one session for "Lihat sesi lengkap" (no prompt text). */

@@ -139,22 +139,6 @@ export function resumeCommand(sessionId: string, cwd?: string, message?: string)
   return `${cd}claude --resume ${shellQuote(sessionId)}${msg}`;
 }
 
-const LOG_SIZE = 8;
-
-/** Merge the fetched log with live events, newest first, without duplicates. */
-export function mergeLog(fetched: AgentEvent[], live: AgentEvent[], agentId: string, limit = LOG_SIZE): AgentEvent[] {
-  const seen = new Set<string>();
-  const out: AgentEvent[] = [];
-  for (const ev of [...live.filter((e) => e.agentId === agentId), ...fetched].sort((a, b) => b.ts - a.ts)) {
-    const key = `${ev.ts}|${ev.kind}|${ev.detail}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(ev);
-    if (out.length >= limit) break;
-  }
-  return out;
-}
-
 function luminance(hex: string): number {
   const n = parseInt(hex.replace('#', '').padEnd(6, '0').slice(0, 6), 16);
   const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
@@ -180,4 +164,71 @@ export function officeOffText(limit: LimitState): string {
     ? `sampai limit reset ${sameDay(limit.resetsAt, limit.since) ? 'pukul' : new Date(limit.resetsAt).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' }) + ','} ${time(limit.resetsAt)}`
     : `sampai agent bisa bekerja lagi (paling lambat ${time(limit.until)})`;
   return `Limit pemakaian habis. Kantor off, semua agent tidur di Asrama ${until}.`;
+}
+
+/** Actions shown per chat bubble; older ones collapse into "+N aksi sebelumnya". */
+export const CHAT_ACTIONS_SHOWN = 4;
+
+/** Live indicator line for an agent, like "typing…" in a chat app. */
+export function presenceText(status: Status): string | null {
+  switch (status) {
+    case 'kerja': return 'sedang bekerja';
+    case 'bicara': return 'memimpin rapat subagent';
+    case 'simak': return 'menunggu prompt Anda';
+    case 'macet': return 'terblokir';
+    default: return null;
+  }
+}
+
+// ---- Obrolan tim (team live chat) -----------------------------------------
+
+export type TeamChatItem =
+  /** Someone sent this agent a prompt (size only). */
+  | { kind: 'user'; ts: number; to: string; text: string }
+  /** A run of actions by one agent in one session; `mentions` = agents it called on (subagent, handoff). */
+  | { kind: 'agent'; ts: number; agentId: string; sessionId: string; actions: AgentEvent[]; more: number }
+  /** Turn end, question or failure of one agent. */
+  | { kind: 'status'; ts: number; agentId: string; sessionId: string; text: string; tone: 'done' | 'wait' | 'error' };
+
+/** Newest team chat items kept in view. */
+export const TEAM_CHAT_MAX = 80;
+
+/**
+ * The office as one group chat: the feed (any order) becomes messages, oldest first. Consecutive
+ * actions of the same agent and session form one bubble, like a chat app grouping messages.
+ */
+export function teamChat(events: AgentEvent[]): TeamChatItem[] {
+  const items: TeamChatItem[] = [];
+  for (const ev of [...events].sort((a, b) => a.ts - b.ts)) {
+    if (ev.kind === 'prompt') {
+      items.push({ kind: 'user', ts: ev.ts, to: ev.agentId, text: ev.detail });
+      continue;
+    }
+    const tone = ev.kind === 'stop' ? 'done' : ev.kind === 'notify' ? 'wait' : ev.kind === 'error' ? 'error' : null;
+    if (tone) {
+      items.push({ kind: 'status', ts: ev.ts, agentId: ev.agentId, sessionId: ev.sessionId, text: ev.detail, tone });
+      continue;
+    }
+    const last = items[items.length - 1];
+    if (last?.kind === 'agent' && last.agentId === ev.agentId && last.sessionId === ev.sessionId) {
+      last.actions.push(ev);
+      last.ts = ev.ts;
+    } else {
+      items.push({ kind: 'agent', ts: ev.ts, agentId: ev.agentId, sessionId: ev.sessionId, actions: [ev], more: 0 });
+    }
+  }
+  for (const it of items) {
+    if (it.kind !== 'agent' || it.actions.length <= CHAT_ACTIONS_SHOWN) continue;
+    it.more = it.actions.length - CHAT_ACTIONS_SHOWN;
+    it.actions = it.actions.slice(-CHAT_ACTIONS_SHOWN);
+  }
+  return items.slice(-TEAM_CHAT_MAX);
+}
+
+/** Agents a message points at: "@name" for any agent whose name or role appears in the text. */
+export function mentionsIn(text: string, agents: { id: string; name: string }[], self: string): string[] {
+  const t = text.toLowerCase();
+  return agents
+    .filter((a) => a.id !== self && a.name.length > 2 && new RegExp(`(^|[^a-z])${a.name.toLowerCase()}([^a-z]|$)`).test(t))
+    .map((a) => a.id);
 }

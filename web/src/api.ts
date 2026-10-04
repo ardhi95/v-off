@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { AgentEvent, AgentWithRuntime, CleanerState, LimitState, StateSnapshot } from '../../src/shared/types.js';
 
-const MAX_EVENTS = 50;
+const MAX_EVENTS = 200;
 
 export interface OfficeData {
   state: StateSnapshot | null;

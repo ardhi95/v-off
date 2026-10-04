@@ -153,10 +153,49 @@ describe('SSE state updates', () => {
     expect(applyAgentUpdate(s1, guest).agents).toHaveLength(19);
   });
 
-  it('keeps the newest 50 events first', () => {
+  it('keeps the newest 200 events first (the team chat history)', () => {
     let s = snap;
-    for (let i = 0; i < 60; i++) s = applyEvent(s, { ts: i, agentId: 'raka', sessionId: 's', source: 'claude-code', kind: 'edit', detail: String(i) });
-    expect(s.events).toHaveLength(50);
-    expect(s.events[0]!.ts).toBe(59);
+    for (let i = 0; i < 230; i++) s = applyEvent(s, { ts: i, agentId: 'raka', sessionId: 's', source: 'claude-code', kind: 'edit', detail: String(i) });
+    expect(s.events).toHaveLength(200);
+    expect(s.events[0]!.ts).toBe(229);
+  });
+});
+
+describe('desk spotlight views', () => {
+  it('adds one camera view per team desk, aimed at its centre', async () => {
+    const { allViews, deskView, podsFrom, VIEWS } = await import('../src/office/layout.js');
+    const pods = podsFrom(defaultConfig().departments);
+    const views = allViews(pods);
+    expect(Object.keys(views)).toEqual([...Object.keys(VIEWS), ...pods.map((p) => `meja:${p.id}`)]);
+    const eng = pods.find((p) => p.id === 'eng')!;
+    expect(deskView(eng)).toMatchObject({ label: eng.label, tx: eng.x, tz: eng.z });
+    expect(deskView(eng).dist).toBeGreaterThan(deskView(pods.find((p) => p.id === 'pmo')!).dist);
+  });
+});
+
+describe('OrbitCamera.panBy', () => {
+  const flat = () => new OrbitCamera({ label: '', tx: 0, ty: 0, tz: 0, yaw: 0, pitch: Math.PI / 2 - 0.01, dist: 1000 }, true);
+
+  it('drags the floor with the pointer (camera facing -z)', () => {
+    const c = flat();
+    c.panBy(100, 0, 600); // drag right: the floor follows, the target moves left
+    expect(c.goal.tx).toBeLessThan(0);
+    expect(Math.abs(c.goal.tz)).toBeLessThan(1e-6);
+    const before = c.goal.tz;
+    c.panBy(0, 100, 600); // drag down: the target moves away from the camera
+    expect(c.goal.tz).toBeLessThan(before);
+    expect(c.cam.tx).toBe(c.goal.tx); // direct, no easing lag
+  });
+
+  it('follows the yaw and stays inside the office', async () => {
+    const { PAN_X, PAN_Z } = await import('../src/office/camera.js');
+    const c = new OrbitCamera({ label: '', tx: 0, ty: 0, tz: 0, yaw: Math.PI / 2, pitch: 1, dist: 1000 }, true);
+    c.panBy(100, 0, 600); // camera looks along -x: screen right is -z, so the target moves +z
+    expect(c.goal.tz).toBeGreaterThan(0);
+    c.panBy(-1e6, 1e6, 600);
+    expect(c.goal.tx).toBeGreaterThanOrEqual(PAN_X[0]);
+    expect(c.goal.tx).toBeLessThanOrEqual(PAN_X[1]);
+    expect(c.goal.tz).toBeGreaterThanOrEqual(PAN_Z[0]);
+    expect(c.goal.tz).toBeLessThanOrEqual(PAN_Z[1]);
   });
 });

@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { AgentWithRuntime, Department, LimitState } from '../../src/shared/types.js';
 import { pickQuip } from './office/behavior.js';
-import { podsFrom, SLEEP_STYLE, STATUS_STYLE, VIEWS, type Bed, type PlaySpot } from './office/layout.js';
+import { allViews, DESK_VIEW_PREFIX, podsFrom, SLEEP_STYLE, STATUS_STYLE, VIEWS, type Bed, type PlaySpot } from './office/layout.js';
 import { OfficeRenderer } from './office/renderer.js';
 import { inkOn, officeOffText } from './present.js';
 import { toSceneAgents } from './sceneAgents.js';
@@ -47,6 +47,19 @@ function usePrefersReducedMotion(): boolean {
   return reduce;
 }
 
+interface Drag {
+  x: number;
+  y: number;
+  /** Last pointer position, for incremental panning. */
+  lx: number;
+  ly: number;
+  yaw: number;
+  pitch: number;
+  moved: number;
+  pan: boolean;
+  pinch?: { mid: [number, number]; dist: number };
+}
+
 /** 3D office canvas with name tags, room labels, and camera controls. */
 export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeStage(
   { agents, departments, selected, onSelect, isDim, cleanerAction, onCleanerAction, spots, cleanerStops, animations, beds, limit, onOpenOffice },
@@ -55,7 +68,10 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<OfficeRenderer | null>(null);
-  const dragRef = useRef<{ x: number; y: number; yaw: number; pitch: number; moved: number } | null>(null);
+  const dragRef = useRef<Drag | null>(null);
+  /** Pointers currently down on the stage (two fingers = pan + pinch zoom). */
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const [panMode, setPanMode] = useState(false);
   const [noGL, setNoGL] = useState(false);
   const [view, setView] = useState<string>('kantor');
   const [auto, setAuto] = useState(false);
@@ -174,38 +190,82 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
       setView('');
     },
   }), []);
+  const views = useMemo(() => allViews(pods), [pods]);
+  const deskPicked = view === 'tim' || view.startsWith(DESK_VIEW_PREFIX);
   const goView = (key: string) => {
-    const v = VIEWS[key];
+    const v = views[key];
     if (!v) return;
     cam()?.view(v);
     setView(key);
   };
 
-  const onPointerDown = (e: React.PointerEvent) => {
+  // Drag: left = rotate, right/middle or Shift = pan (swapped by the "Geser" toggle).
+  // Touch: one finger rotates, two fingers pan and pinch to zoom. Pointer capture keeps
+  // the drag alive when the pointer leaves the canvas.
+  const twoFinger = () => {
+    const [a, b] = [...pointersRef.current.values()];
+    return { mid: [(a!.x + b!.x) / 2, (a!.y + b!.y) / 2] as [number, number], dist: Math.hypot(a!.x - b!.x, a!.y - b!.y) };
+  };
+  const startDrag = (x: number, y: number, pan: boolean, moved = 0) => {
     const c = cam();
-    if (!c || e.button !== 0) return;
-    dragRef.current = { x: e.clientX, y: e.clientY, yaw: c.goal.yaw, pitch: c.goal.pitch, moved: 0 };
+    if (c) dragRef.current = { x, y, lx: x, ly: y, yaw: c.goal.yaw, pitch: c.goal.pitch, moved, pan };
+  };
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (!cam() || e.button > 2) return;
+    if (e.button === 1) e.preventDefault(); // no autoscroll on middle-drag
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    const pts = pointersRef.current;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size >= 2) {
+      // Second finger: switch to pan + pinch; never a click.
+      if (dragRef.current) dragRef.current = { ...dragRef.current, moved: 99, pinch: twoFinger() };
+      return;
+    }
+    const modifier = e.shiftKey || e.metaKey || e.ctrlKey;
+    startDrag(e.clientX, e.clientY, e.button !== 0 || panMode !== modifier);
   };
   const onPointerMove = (e: React.PointerEvent) => {
-    const g = dragRef.current, c = cam();
-    if (!g || !c) return;
-    const dx = e.clientX - g.x, dy = e.clientY - g.y;
-    g.moved = Math.max(g.moved, Math.abs(dx) + Math.abs(dy));
-    if (g.moved < 4) return;
-    c.orbitTo(g.yaw - dx * 0.006, g.pitch + dy * 0.005);
+    const g = dragRef.current, c = cam(), pts = pointersRef.current;
+    if (!g || !c || !pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const h = stageRef.current?.clientHeight ?? 600;
+    if (g.pinch && pts.size >= 2) {
+      const now = twoFinger();
+      c.panBy(now.mid[0] - g.pinch.mid[0], now.mid[1] - g.pinch.mid[1], h);
+      if (g.pinch.dist > 0 && now.dist > 0) c.zoom(g.pinch.dist / now.dist);
+      g.pinch = now;
+    } else {
+      const dx = e.clientX - g.x, dy = e.clientY - g.y;
+      g.moved = Math.max(g.moved, Math.abs(dx) + Math.abs(dy));
+      if (g.moved < 4) return;
+      if (g.pan) c.panBy(e.clientX - g.lx, e.clientY - g.ly, h);
+      else c.orbitTo(g.yaw - dx * 0.006, g.pitch + dy * 0.005);
+      g.lx = e.clientX;
+      g.ly = e.clientY;
+    }
     rendererRef.current?.invalidate();
     if (view) setView('');
   };
-  const onPointerUp = (e: React.PointerEvent) => {
+  const endPointer = (e: React.PointerEvent, click: boolean) => {
+    const pts = pointersRef.current;
+    if (!pts.delete(e.pointerId)) return;
     const g = dragRef.current;
+    if (pts.size === 1) {
+      // One finger left after a pinch: keep rotating from there, without a click at the end.
+      const [p] = [...pts.values()];
+      startDrag(p!.x, p!.y, false, 99);
+      return;
+    }
+    if (pts.size > 1) return;
     dragRef.current = null;
     const canvas = canvasRef.current, r = rendererRef.current;
-    if (g && g.moved < 4 && canvas && r) {
+    if (click && g && !g.pan && g.moved < 4 && canvas && r) {
       const rc = canvas.getBoundingClientRect();
       const id = r.pickAt(e.clientX - rc.left, e.clientY - rc.top);
       if (id) onSelect(id);
     }
   };
+  const onPointerUp = (e: React.PointerEvent) => endPointer(e, e.button === 0);
   const stop = (e: React.PointerEvent) => e.stopPropagation();
 
   const ceo = agents.find((a) => a.seat && 'room' in a.seat && a.seat.room === 'ceo');
@@ -225,7 +285,8 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onPointerLeave={() => (dragRef.current = null)}
+      onPointerCancel={(e) => endPointer(e, false)}
+      onContextMenu={(e) => e.preventDefault()}
     >
       <canvas
         ref={canvasRef}
@@ -268,12 +329,35 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
       )}
       {noGL && <div className="stage-fallback">Browser ini tidak mendukung WebGL, jadi tampilan 3D tidak bisa ditampilkan.</div>}
       <div className="cam-bar" onPointerDown={stop}>
-        {Object.entries(VIEWS).map(([key, v]) => (
+        {Object.entries(VIEWS).map(([key, v]) => key === 'tim' ? (
+          // Spotlight any team desk; "Semua meja tim" is the old single preset.
+          <label key={key} className="cam-pick">
+            <span className="sr-only">Sorot meja tim</span>
+            <select
+              className={`cam${deskPicked ? ' is-on' : ''}`}
+              value={deskPicked ? view : ''}
+              onChange={(e) => goView(e.target.value)}
+            >
+              <option value="" disabled hidden>{v.label}</option>
+              <option value="tim">Semua meja tim</option>
+              {pods.map((p) => <option key={p.id} value={DESK_VIEW_PREFIX + p.id}>{p.label}</option>)}
+            </select>
+          </label>
+        ) : (
           <button key={key} type="button" className={`cam${view === key ? ' is-on' : ''}`} aria-pressed={view === key} onClick={() => goView(key)}>
             {v.label}
           </button>
         ))}
         <span className="cam-sep" aria-hidden="true" />
+        <button
+          type="button"
+          className={`cam${panMode ? ' is-on' : ''}`}
+          aria-pressed={panMode}
+          title="Seret kiri untuk menggeser denah (Shift untuk memutar)"
+          onClick={() => setPanMode(!panMode)}
+        >
+          Geser
+        </button>
         <button type="button" className="cam" aria-label="Putar ke kiri" onClick={() => { cam()?.rotate(-0.5); setView(''); }}>↺</button>
         <button type="button" className="cam" aria-label="Putar ke kanan" onClick={() => { cam()?.rotate(0.5); setView(''); }}>↻</button>
         <button type="button" className="cam" aria-label="Perbesar" onClick={() => cam()?.zoom(0.82)}>+</button>
@@ -289,7 +373,9 @@ export const OfficeStage = forwardRef<OfficeStageHandle, Props>(function OfficeS
           Putar otomatis
         </button>
       </div>
-      <span className="stage-hint">Seret untuk memutar · scroll untuk zoom · klik karakter untuk memilih</span>
+      <span className="stage-hint">
+        {panMode ? 'Seret untuk menggeser · Shift+seret untuk memutar' : 'Seret untuk memutar · seret kanan/Shift untuk menggeser'} · scroll untuk zoom · klik karakter untuk memilih
+      </span>
     </div>
   );
 });

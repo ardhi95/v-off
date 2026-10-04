@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import path from 'node:path';
 import type {
   Agent, AgentEvent, AgentRuntime, AgentWithRuntime, BlockRecord, CleanerState, Config, LimitState, ModelPrice, Period, Report, ReportRow,
-  SessionSummary, StateSnapshot, Status, Usage,
+  SessionOverview, SessionSummary, StateSnapshot, Status, Usage,
 } from '../shared/types.js';
 import { clip } from './summarize.js';
 import { matchAgent } from './matcher.js';
@@ -11,10 +11,16 @@ import type { NormalizedEvent, SessionContext, Sink } from './sources/types.js';
 import { applyEvent, computeStatus, newSession, type SessionState } from './status.js';
 
 const FEED_LIMIT = 500;
-const SNAPSHOT_EVENTS = 50;
+const SNAPSHOT_EVENTS = 150;
 const USAGE_RETENTION_MS = 31 * 24 * 3600_000;
 export const SESSION_LOG_LIMIT = 300;
 const SESSION_LOGS_KEPT = 200;
+/** Transcript-only sessions: a tool still open after this long probably waits for approval. */
+export const PENDING_TOOL_MS = 90_000;
+/** Percakapan tabs skip sessions quiet for longer than this. */
+const SESSION_TAB_MAX_AGE_MS = 24 * 3600_000;
+/** Guessed (auto) waits older than this are dropped: the session was left, not waiting. */
+export const AUTO_BLOCK_STALE_MS = 30 * 60_000;
 /** Office stays off this long when a limit message names no reset time (Claude's session window). */
 export const LIMIT_FALLBACK_MS = 5 * 3600_000;
 
@@ -188,6 +194,7 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
 
       const hadBlock = !!s.block;
       applyEvent(s, ev);
+      if (ev.channel === 'transcript' && ev.signal === 'notify' && s.block) s.block.auto = true;
       if (!hadBlock && s.block) this.recordBlock({ ts: ev.ts, agentId: s.agentId, sessionId: s.sessionId }, !!opts.historic);
       let hours = this.activeHours.get(s.sessionId);
       if (!hours) this.activeHours.set(s.sessionId, (hours = new Set()));
@@ -238,6 +245,7 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
       s.hadUnresolvedError = false;
       s.lastActivityAt = now;
       s.lastStopAt = undefined;
+      s.waitHandledAt = now;
     }
     const flags = this.flags.get(agentId);
     if (flags?.external?.status === 'macet') flags.external = { status: 'kerja', at: now };
@@ -323,7 +331,32 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
       this.usage = this.usage.filter((u) => u.ts >= cutoff);
       this.oldestUsageTs = this.usage.reduce((m, u) => Math.min(m, u.ts), Infinity);
     }
+    for (const s of this.sessions.values()) this.guessWait(s);
     this.refreshAll(true, false);
+  }
+
+  /**
+   * Sessions without hooks never report permission prompts. Like virtual-agents-office, a tool
+   * call that stays open with a silent transcript is shown as a likely wait for approval. It is
+   * not counted as a block in reports (a long build looks the same), and every guessed wait is
+   * dropped once the session has been quiet for 30 minutes.
+   */
+  private guessWait(s: SessionState): void {
+    if (s.hookSeenAt !== undefined || s.endedAt !== undefined) return;
+    const quiet = this.clock() - s.lastActivityAt;
+    if (s.block?.auto && quiet >= AUTO_BLOCK_STALE_MS) {
+      s.block = undefined;
+      return;
+    }
+    if (s.block || quiet < PENDING_TOOL_MS || quiet >= AUTO_BLOCK_STALE_MS) return;
+    const stopped = s.lastStopAt !== undefined && s.lastStopAt >= s.lastActivityAt;
+    const handled = s.waitHandledAt !== undefined && s.waitHandledAt >= s.lastActivityAt;
+    if (stopped || handled || s.toolsInFlight === 0 || s.subagentsActive > 0) return;
+    s.block = {
+      kind: 'notify', auto: true, at: s.lastActivityAt + PENDING_TOOL_MS,
+      reason: 'Mungkin menunggu izin',
+      hint: `${s.lastAction ? `"${s.lastAction}" belum` : 'Tool belum'} selesai lebih dari 90 detik. Setujui di terminal sesi jika diminta, atau tunggu jika perintahnya memang lama.`,
+    };
   }
 
   // ---- read ---------------------------------------------------------------
@@ -370,6 +403,29 @@ export class Store extends EventEmitter<StoreEvents> implements Sink {
       if (this.feed[i]!.agentId === agentId) out.push(this.feed[i]!);
     }
     return out;
+  }
+
+  /**
+   * Sessions classified into one agent, active ones first, then the most recent. Sessions
+   * quiet for more than a day are left out. Each carries its own status.
+   */
+  agentSessions(agentId: string, limit = 12): SessionOverview[] {
+    const now = this.clock();
+    const out: SessionOverview[] = [];
+    for (const s of this.sessions.values()) {
+      if (s.agentId !== agentId) continue;
+      if (now - Math.max(s.lastActivityAt, s.lastStopAt ?? 0) > SESSION_TAB_MAX_AGE_MS) continue;
+      const status = computeStatus(s, {}, now, this.config.rules);
+      out.push({
+        sessionId: s.sessionId, cwd: s.cwd, repo: s.cwd ? path.basename(s.cwd) : undefined, gitBranch: s.gitBranch,
+        startedAt: s.startedAt, lastActivityAt: s.lastActivityAt, endedAt: s.endedAt,
+        status, active: status !== 'idle', lastAction: s.lastAction,
+        block: status === 'macet' && s.block ? { reason: s.block.reason, hint: s.block.hint, at: s.block.at } : undefined,
+      });
+    }
+    return out
+      .sort((a, b) => Number(b.active) - Number(a.active) || b.lastActivityAt - a.lastActivityAt)
+      .slice(0, limit);
   }
 
   sessionSummary(sessionId: string): SessionSummary | undefined {

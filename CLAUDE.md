@@ -99,7 +99,7 @@ Variabel lingkungan: `V_OFF_PORT` (default 4747), `V_OFF_HOST` (default 127.0.0.
 - Panel kanan = **Obrolan tim** (`TeamChat.tsx`): live chat grup seluruh kantor, menggantikan panel Detail agent.
   Feed (SSE, buffer 200 di klien, 150 di snapshot) jadi pesan per agent (avatar, nama), prompt tampil sebagai
   "Anda → @agent", nama agent lain di teks jadi mention, agent yang bekerja punya titik mengetik. Agent yang dipilih
-  di denah disematkan di atas (status, lokasi, hambatan + "Tandai sudah ditangani", aksi) dan pesannya disorot.
+  di denah disematkan di bawah chat (status, lokasi, hambatan + "Tandai sudah ditangani", aksi) dan pesannya disorot.
   `present.ts` `teamChat`/`mentionsIn`/`presenceText` (dites). Isi tetap ringkasan aksi, tidak pernah teks
   prompt/jawaban. `GET /api/agents/:id/sessions` (`Store.agentSessions`) tetap tersedia untuk daftar sesi agent.
 - `FilterBar.tsx`, `ActivityFeed.tsx`, `SessionDialog.tsx`, `MessageDialog.tsx`: interaksi (Fase 3).

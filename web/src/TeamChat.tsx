@@ -31,7 +31,7 @@ const TONE: Record<'done' | 'wait' | 'error', { bg: string; fg: string }> = {
  * what it does (summaries only, never prompt or answer text), prompts show as "Anda → @agent",
  * names of other agents become mentions, and working agents show typing dots. Nothing to click
  * for updates: SSE entries stream in and the view follows the newest message. The agent picked
- * in the 3D office is pinned on top (status, block, actions) and its messages are highlighted.
+ * in the 3D office is pinned below the chat (status, block, actions) and its messages are highlighted.
  */
 export function TeamChat({ agents, departments, events, selected: a, spot, asleep, onSelect, onFocus, onToast, onOpenSession, onMessage }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
@@ -142,6 +142,33 @@ export function TeamChat({ agents, departments, events, selected: a, spot, aslee
         <span className="muted small">{working.length} bekerja · {blocked.length} terblokir</span>
       </div>
 
+      <div
+        className="convo-feed team-feed"
+        ref={scroller}
+        tabIndex={0}
+        role="log"
+        aria-live="polite"
+        aria-label="Pesan tim"
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+        }}
+      >
+        {chat.length === 0 && <p className="muted small">Belum ada aktivitas. Pesan agent muncul di sini secara langsung.</p>}
+        {chat.map(message)}
+        {working.map((x) => (
+          <div key={x.id} className="chat-presence">
+            <span className="typing" aria-hidden="true"><i /><i /><i /></span>
+            <span><button type="button" className="chat-name" onClick={() => onSelect(x.id)}>{x.name}</button> {presenceText(x.runtime.status)}</span>
+          </div>
+        ))}
+        {blocked.map((x) => (
+          <div key={x.id} className="chat-presence is-block">
+            <span className="convo-dot blink" style={{ background: STATUS_STYLE.macet.fill }} aria-hidden="true" />
+            <span><button type="button" className="chat-name" onClick={() => onSelect(x.id)}>{x.name}</button> terblokir{x.runtime.block ? `: ${x.runtime.block.reason}` : ''}</span>
+          </div>
+        ))}
+      </div>
       {a && rt && st && (
         <div className="pinned" style={{ borderColor: st.fill }}>
           <div className="pinned-row">
@@ -174,33 +201,6 @@ export function TeamChat({ agents, departments, events, selected: a, spot, aslee
         </div>
       )}
 
-      <div
-        className="convo-feed team-feed"
-        ref={scroller}
-        tabIndex={0}
-        role="log"
-        aria-live="polite"
-        aria-label="Pesan tim"
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-        }}
-      >
-        {chat.length === 0 && <p className="muted small">Belum ada aktivitas. Pesan agent muncul di sini secara langsung.</p>}
-        {chat.map(message)}
-        {working.map((x) => (
-          <div key={x.id} className="chat-presence">
-            <span className="typing" aria-hidden="true"><i /><i /><i /></span>
-            <span><button type="button" className="chat-name" onClick={() => onSelect(x.id)}>{x.name}</button> {presenceText(x.runtime.status)}</span>
-          </div>
-        ))}
-        {blocked.map((x) => (
-          <div key={x.id} className="chat-presence is-block">
-            <span className="convo-dot blink" style={{ background: STATUS_STYLE.macet.fill }} aria-hidden="true" />
-            <span><button type="button" className="chat-name" onClick={() => onSelect(x.id)}>{x.name}</button> terblokir{x.runtime.block ? `: ${x.runtime.block.reason}` : ''}</span>
-          </div>
-        ))}
-      </div>
       <p className="muted small team-note">Diperbarui langsung. Ringkasan aksi saja; isi prompt dan jawaban tidak ditampilkan.</p>
     </aside>
   );

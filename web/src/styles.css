@@ -121,7 +121,7 @@ select.cam option { background: #1b1f27; color: #f2f3f6; }
 .team-chat { position: sticky; top: 16px; height: calc(100vh - 32px); max-height: 980px; }
 .team-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 16px 18px 10px; border-bottom: 1px solid var(--line); }
 .team-head h2 { margin: 0; font-size: 18px; display: flex; align-items: center; gap: 8px; }
-.pinned { margin: 12px 14px 0; padding: 10px 12px; border: 1px solid; border-radius: 14px; background: #1b2029; display: flex; flex-direction: column; gap: 8px; }
+.pinned { margin: 10px 14px 0; padding: 10px 12px; border: 1px solid; border-radius: 14px; background: #1b2029; display: flex; flex-direction: column; gap: 8px; }
 .pinned-row { display: flex; align-items: center; gap: 10px; }
 .pinned-id { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .pinned-id .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -130,6 +130,7 @@ select.cam option { background: #1b1f27; color: #f2f3f6; }
 .pinned-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .team-feed { flex: 1; min-height: 0; max-height: none; margin: 12px 14px 0; }
 .team-note { margin: 8px 16px 14px; }
+.team-feed { margin-bottom: 0; }
 .chat-avatar { flex-shrink: 0; align-self: flex-end; border-radius: 50%; border: 0; cursor: pointer; font-family: var(--font); font-weight: 800; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; }
 .chat-agent { gap: 8px; align-items: flex-end; }
 .chat-name { background: none; border: 0; padding: 0; color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }
